@@ -1,0 +1,53 @@
+# ============================================================================
+# COMANDOS CURL PARA PROBAR ENDPOINTS
+# Copia y pega estos comandos en tu terminal (CMD o PowerShell)
+# ============================================================================
+
+# IMPORTANTE: El servidor debe estar corriendo (python main.py)
+
+# ============================================================================
+# 1. ENVIAR CORREO DE PRUEBA
+# ============================================================================
+curl -X POST "http://localhost:8000/api/alerts/test-email" ^
+  -H "Content-Type: application/json" ^
+  -d "{\"email\": \"moralesmonterok@gmail.com\"}"
+
+# ============================================================================
+# 2. SUSCRIBIR UN CORREO A ALERTAS
+# ============================================================================
+curl -X POST "http://localhost:8000/api/alerts/subscribe" ^
+  -H "Content-Type: application/json" ^
+  -d "{\"email\": \"moralesmonterok@gmail.com\"}"
+
+# ============================================================================
+# 3. VER TODAS LAS SUSCRIPCIONES
+# ============================================================================
+curl http://localhost:8000/api/alerts/subscriptions
+
+# ============================================================================
+# 4. VER ESTADO DE UNA SUSCRIPCIÓN ESPECÍFICA
+# ============================================================================
+curl http://localhost:8000/api/alerts/subscription/moralesmonterok@gmail.com
+
+# ============================================================================
+# 5. DESUSCRIBIR UN CORREO
+# ============================================================================
+curl -X DELETE "http://localhost:8000/api/alerts/unsubscribe/moralesmonterok@gmail.com"
+
+# ============================================================================
+# 6. SUSCRIBIR OTRO CORREO (ejemplo)
+# ============================================================================
+curl -X POST "http://localhost:8000/api/alerts/subscribe" ^
+  -H "Content-Type: application/json" ^
+  -d "{\"email\": \"otro_correo@ejemplo.com\"}"
+
+
+# ============================================================================
+# NOTA PARA PowerShell:
+# Si usas PowerShell en lugar de CMD, reemplaza ^ con ` (acento grave)
+# ============================================================================
+
+# Ejemplo PowerShell:
+# curl -X POST "http://localhost:8000/api/alerts/test-email" `
+#   -H "Content-Type: application/json" `
+#   -d "{\"email\": \"moralesmonterok@gmail.com\"}"

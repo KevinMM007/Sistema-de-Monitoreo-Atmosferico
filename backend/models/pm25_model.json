@@ -1,0 +1,16 @@
+{
+  "pollutant": "pm25",
+  "statistics": {
+    "mean": 21.191666666666666,
+    "min": 12.5,
+    "max": 30.7,
+    "count": 336
+  },
+  "created_at": "2025-06-12T17:48:38.954313",
+  "type": "statistical_model",
+  "coefficients": {
+    "hour_factor": 0.1,
+    "day_factor": 0.05,
+    "base_value": 21.191666666666666
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "trained_at": "2025-06-12T17:48:38.952608",
+  "pollutants": [
+    "pm25",
+    "pm10",
+    "no2",
+    "o3",
+    "co"
+  ],
+  "data_count": 336,
+  "training_period_hours": 168,
+  "statistics": {
+    "pm25": {
+      "mean": 21.191666666666666,
+      "min": 12.5,
+      "max": 30.7,
+      "count": 336
+    },
+    "pm10": {
+      "mean": 22.6875,
+      "min": 15.4,
+      "max": 31.4,
+      "count": 336
+    },
+    "no2": {
+      "mean": 9.191666666666666,
+      "min": 0.9,
+      "max": 23.7,
+      "count": 336
+    },
+    "o3": {
+      "mean": 68.70833333333333,
+      "min": 27.0,
+      "max": 99.0,
+      "count": 336
+    },
+    "co": {
+      "mean": 0.262625,
+      "min": 0.15,
+      "max": 0.514,
+      "count": 336
+    }
+  },
+  "model_type": "statistical_estimator",
+  "version": "1.0"
+}

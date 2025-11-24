@@ -1,0 +1,58 @@
+# Dependencias
+node_modules/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Entornos virtuales
+venv/
+env/
+.env
+
+# Archivos de configuración local
+*.local
+.env.local
+
+# IDEs
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Build
+dist/
+dist-ssr/
+build/
+
+# Base de datos local
+*.db
+*.sqlite
+*.sqlite3
+
+# Cache
+cache/
+.cache/
+*.cache
+
+# Archivos del sistema
+.DS_Store
+Thumbs.db
+
+# Archivos de prueba y debug
+test_*.py
+*_debug.json
+
+# Archivos de backup (solo los que no queremos)
+*.bak
+
+# Archivos temporales
+*.tmp
+*.temp

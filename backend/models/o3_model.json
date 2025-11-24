@@ -1,0 +1,16 @@
+{
+  "pollutant": "o3",
+  "statistics": {
+    "mean": 68.70833333333333,
+    "min": 27.0,
+    "max": 99.0,
+    "count": 336
+  },
+  "created_at": "2025-06-12T17:48:38.956321",
+  "type": "statistical_model",
+  "coefficients": {
+    "hour_factor": 0.1,
+    "day_factor": 0.05,
+    "base_value": 68.70833333333333
+  }
+}

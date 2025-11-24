@@ -1,0 +1,16 @@
+{
+  "pollutant": "no2",
+  "statistics": {
+    "mean": 9.191666666666666,
+    "min": 0.9,
+    "max": 23.7,
+    "count": 336
+  },
+  "created_at": "2025-06-12T17:48:38.955302",
+  "type": "statistical_model",
+  "coefficients": {
+    "hour_factor": 0.1,
+    "day_factor": 0.05,
+    "base_value": 9.191666666666666
+  }
+}
