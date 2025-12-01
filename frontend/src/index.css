@@ -1,3 +1,143 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* ============================================
+   ANIMACIONES PERSONALIZADAS
+   ============================================ */
+
+/* Punto parpadeante para indicador de datos en tiempo real */
+@keyframes pulse-dot {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(1.2);
+  }
+}
+
+.animate-pulse-dot {
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+/* Animación de fade in para mensajes y notificaciones */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out;
+}
+
+/* Animación de fade in desde abajo */
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.4s ease-out;
+}
+
+/* Transiciones suaves para cambio de vistas */
+.view-transition {
+  transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
+}
+
+.view-enter {
+  opacity: 0;
+  transform: translateX(20px);
+}
+
+.view-enter-active {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* ============================================
+   MEJORAS DE CONTRASTE Y COLORES
+   ============================================ */
+
+/* Badge de estado "Moderado" con mejor contraste */
+.badge-moderado {
+  background-color: #f59e0b;
+  color: #000000;
+  font-weight: 600;
+}
+
+/* Badge de estado "Bueno" */
+.badge-bueno {
+  background-color: #10b981;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+/* Badge de estado "Insalubre" */
+.badge-insalubre {
+  background-color: #f97316;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+/* Badge de estado "Muy Insalubre" */
+.badge-muy-insalubre {
+  background-color: #ef4444;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+/* Badge de estado "Peligroso" */
+.badge-peligroso {
+  background-color: #7c2d12;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+/* ============================================
+   MEJORAS GENERALES DE UI
+   ============================================ */
+
+/* Scrollbar personalizado */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a1a1a1;
+}
+
+/* Efecto hover suave para tarjetas */
+.card-hover {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+}

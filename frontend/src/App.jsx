@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import AirQualityDashboard, { generateReport } from "./components/AirQualityDashboard.jsx";
 import AlertsAndPredictions from "./components/AlertsAndPredictions.jsx";
 import HistoricalDataDashboard from "./components/HistoricalDataDashboard.jsx";
@@ -9,6 +9,9 @@ function App() {
   const [airQualityData, setAirQualityData] = useState(null);
   const [weatherData, setWeatherData] = useState(null);
   const [zoneData, setZoneData] = useState(null);
+  
+  // Rastrear qué vistas han sido visitadas (para lazy mounting)
+  const [visitedViews, setVisitedViews] = useState({ dashboard: true });
 
   // Efecto para cargar datos necesarios para el reporte
   useEffect(() => {
@@ -50,6 +53,28 @@ function App() {
     return () => clearInterval(interval);
   }, []);
 
+  // Marcar vista como visitada cuando cambia
+  useEffect(() => {
+    if (!visitedViews[activeView]) {
+      setVisitedViews(prev => ({ ...prev, [activeView]: true }));
+    }
+  }, [activeView, visitedViews]);
+
+  // Cambiar de vista con efecto de trigger para resize
+  const changeView = useCallback((view) => {
+    setActiveView(view);
+    // Disparar resize después de cambiar de vista para que los mapas se actualicen
+    setTimeout(() => {
+      window.dispatchEvent(new Event('resize'));
+    }, 100);
+    setTimeout(() => {
+      window.dispatchEvent(new Event('resize'));
+    }, 300);
+    setTimeout(() => {
+      window.dispatchEvent(new Event('resize'));
+    }, 500);
+  }, []);
+
   const handleGenerateReport = () => {
     if (!airQualityData || !weatherData) {
       alert('No hay datos disponibles para generar el reporte');
@@ -63,6 +88,24 @@ function App() {
     
     console.log('Generando reporte con zoneData:', zoneData);
     generateReport(airQualityData, weatherData, zoneData);
+  };
+
+  // Estilos para vistas ocultas - NO usar display:none ni height:0
+  // Esto mantiene las dimensiones para que Leaflet pueda calcular correctamente
+  const getViewStyle = (viewName) => {
+    const isActive = activeView === viewName;
+    return {
+      position: isActive ? 'relative' : 'absolute',
+      top: isActive ? 'auto' : 0,
+      left: isActive ? 'auto' : 0,
+      right: isActive ? 'auto' : 0,
+      opacity: isActive ? 1 : 0,
+      pointerEvents: isActive ? 'auto' : 'none',
+      zIndex: isActive ? 1 : 0,
+      // Importante: NO usar visibility:hidden ni height:0
+      // Esto permite que Leaflet calcule dimensiones correctamente
+      transform: isActive ? 'none' : 'translateX(-100vw)',
+    };
   };
 
   return (
@@ -90,7 +133,7 @@ function App() {
             <div className="flex items-center space-x-3">
               {/* Dashboard Button */}
               <button
-                onClick={() => setActiveView('dashboard')}
+                onClick={() => changeView('dashboard')}
                 className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
                   activeView === 'dashboard'
                     ? 'bg-blue-600 text-white shadow-md transform scale-105'
@@ -105,7 +148,7 @@ function App() {
               
               {/* Alerts and Predictions Button */}
               <button
-                onClick={() => setActiveView('alerts')}
+                onClick={() => changeView('alerts')}
                 className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
                   activeView === 'alerts'
                     ? 'bg-blue-600 text-white shadow-md transform scale-105'
@@ -120,7 +163,7 @@ function App() {
               
               {/* Historical Data Button */}
               <button
-                onClick={() => setActiveView('historical')}
+                onClick={() => changeView('historical')}
                 className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
                   activeView === 'historical'
                     ? 'bg-blue-600 text-white shadow-md transform scale-105'
@@ -154,17 +197,34 @@ function App() {
         </div>
       </nav>
       
-      <main className="w-full py-4 px-4">
-        {/* ⚡ Mantener todos los componentes montados, solo ocultar/mostrar */}
-        <div style={{ display: activeView === 'dashboard' ? 'block' : 'none' }}>
-          <AirQualityDashboard />
+      <main className="w-full py-4 px-4 relative overflow-hidden">
+        {/* Dashboard */}
+        <div 
+          className="transition-opacity duration-300"
+          style={getViewStyle('dashboard')}
+        >
+          <AirQualityDashboard isVisible={activeView === 'dashboard'} />
         </div>
-        <div style={{ display: activeView === 'alerts' ? 'block' : 'none' }}>
-          <AlertsAndPredictions />
-        </div>
-        <div style={{ display: activeView === 'historical' ? 'block' : 'none' }}>
-          <HistoricalDataDashboard />
-        </div>
+        
+        {/* Alerts - lazy mount */}
+        {visitedViews.alerts && (
+          <div 
+            className="transition-opacity duration-300"
+            style={getViewStyle('alerts')}
+          >
+            <AlertsAndPredictions isVisible={activeView === 'alerts'} />
+          </div>
+        )}
+        
+        {/* Historical - lazy mount */}
+        {visitedViews.historical && (
+          <div 
+            className="transition-opacity duration-300"
+            style={getViewStyle('historical')}
+          >
+            <HistoricalDataDashboard isVisible={activeView === 'historical'} />
+          </div>
+        )}
       </main>
     </div>
   );

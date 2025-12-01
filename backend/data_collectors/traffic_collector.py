@@ -21,13 +21,20 @@ class TomTomTrafficCollector:
         self.api_key = os.getenv('TOMTOM_API_KEY', 'W5vAkX8Aygts7V9YpFPMVLh6lNKq5zyv')
         self.base_url = 'https://api.tomtom.com/traffic/services/4/flowSegmentData/absolute/10/json'
         
-        # Coordenadas de puntos clave en Xalapa
+        # Coordenadas de VÍAS PRINCIPALES en Xalapa para monitoreo de tráfico
+        # IMPORTANTE: Estas coordenadas deben estar sobre calles/avenidas principales
+        # para que TomTom tenga datos de tráfico
         self.xalapa_points = [
-            {"lat": 19.5438, "lon": -96.9102, "name": "Centro"},
-            {"lat": 19.5619, "lon": -96.9352, "name": "Norte"},
-            {"lat": 19.5219, "lon": -96.8851, "name": "Sur"},
-            {"lat": 19.5387, "lon": -96.8851, "name": "Este"},
-            {"lat": 19.5387, "lon": -96.9352, "name": "Oeste"}
+            # Centro - Av. Enríquez (vía principal del centro)
+            {"lat": 19.5290, "lon": -96.9219, "name": "Centro"},
+            # Norte - Av. Lázaro Cárdenas / Circuito Presidentes (zona USBI)
+            {"lat": 19.5520, "lon": -96.9269, "name": "Norte"},
+            # Sur - Av. Américas / Boulevard Xalapa-Banderilla
+            {"lat": 19.5050, "lon": -96.9150, "name": "Sur"},
+            # Este - Av. 20 de Noviembre Este / Carretera a Coatepec
+            {"lat": 19.5300, "lon": -96.8950, "name": "Este"},
+            # Oeste - Av. Ávila Camacho / Boulevard Adolfo Ruiz Cortines
+            {"lat": 19.5350, "lon": -96.9400, "name": "Oeste"}
         ]
         
         # Estadísticas para diagnóstico

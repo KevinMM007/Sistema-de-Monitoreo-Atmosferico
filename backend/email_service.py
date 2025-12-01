@@ -183,7 +183,9 @@ Para desactivar estas notificaciones, ingresa al sistema y desuscríbete.
 </head>
 <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
     <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; border-radius: 10px 10px 0 0; text-align: center;">
-        <img src="https://via.placeholder.com/80" alt="REVIVE Logo" style="width: 80px; height: 80px; border-radius: 50%; margin-bottom: 10px;">
+        <div style="width: 80px; height: 80px; background: white; border-radius: 50%; margin: 0 auto 15px auto; display: flex; align-items: center; justify-content: center;">
+            <span style="font-size: 40px;">🌍</span>
+        </div>
         <h1 style="margin: 0; font-size: 24px;">Sistema de Calidad del Aire</h1>
         <p style="margin: 5px 0 0 0; font-size: 14px;">Xalapa, Veracruz</p>
     </div>

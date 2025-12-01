@@ -2,7 +2,7 @@ from typing import Optional, List, Dict
 from datetime import datetime, timedelta
 from fastapi import APIRouter, HTTPException, Depends, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import func, cast, Date
+from sqlalchemy import func, cast, Date, text
 import asyncio
 from database import get_db
 from data_collectors.air_quality_collector import OpenMeteoCollector
@@ -14,7 +14,10 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 openmeteo_collector = OpenMeteoCollector()
 
-@router.get("/api/air-quality/historical")
+# Importar models al inicio
+import models
+
+@router.get("/air-quality/historical")
 async def get_historical_data(
     start: str = Query(..., description="Fecha de inicio (YYYY-MM-DD)"),
     end: str = Query(..., description="Fecha de fin (YYYY-MM-DD)"),
@@ -26,8 +29,11 @@ async def get_historical_data(
     """
     try:
         # Validar fechas
-        start_date = datetime.strptime(start, "%Y-%m-%d")
-        end_date = datetime.strptime(end, "%Y-%m-%d")
+        try:
+            start_date = datetime.strptime(start, "%Y-%m-%d")
+            end_date = datetime.strptime(end, "%Y-%m-%d")
+        except ValueError:
+            raise HTTPException(400, "Formato de fecha inválido. Use YYYY-MM-DD")
         
         if end_date < start_date:
             raise HTTPException(400, "La fecha de fin debe ser posterior a la fecha de inicio")
@@ -35,8 +41,12 @@ async def get_historical_data(
         if (end_date - start_date).days > 365:
             raise HTTPException(400, "El rango máximo es de 1 año")
         
+        logger.info(f"Consultando datos históricos: {start} a {end}, escala: {scale}")
+        
         # Primero intentar obtener datos de la base de datos local
         local_data = await get_local_historical_data(db, start_date, end_date, scale)
+        
+        logger.info(f"Datos locales encontrados: {len(local_data)} registros")
         
         # Si no hay suficientes datos locales y el rango es reciente, consultar API
         if len(local_data) < 10 and end_date >= datetime.now() - timedelta(days=60):
@@ -64,10 +74,12 @@ async def get_historical_data(
             }
         }
         
+    except HTTPException:
+        raise
     except ValueError as e:
-        raise HTTPException(400, f"Formato de fecha inválido: {str(e)}")
+        raise HTTPException(400, f"Error en parámetros: {str(e)}")
     except Exception as e:
-        logger.error(f"Error obteniendo datos históricos: {str(e)}")
+        logger.error(f"Error obteniendo datos históricos: {str(e)}", exc_info=True)
         raise HTTPException(500, f"Error al obtener datos históricos: {str(e)}")
 
 async def get_local_historical_data(db: Session, start_date: datetime, end_date: datetime, scale: str) -> List[Dict]:
@@ -79,10 +91,11 @@ async def get_local_historical_data(db: Session, start_date: datetime, end_date:
         start_datetime = datetime.combine(start_date.date(), datetime.min.time())
         end_datetime = datetime.combine(end_date.date(), datetime.max.time())
         
+        # PostgreSQL usa DATE_TRUNC y TO_CHAR en lugar de strftime
         if scale == "hourly":
-            # Datos por hora usando date_trunc de PostgreSQL
+            # Agrupar por hora usando DATE_TRUNC de PostgreSQL
             result = db.query(
-                func.date_trunc('hour', models.AirQualityReading.timestamp).label('timestamp'),
+                func.to_char(func.date_trunc('hour', models.AirQualityReading.timestamp), 'YYYY-MM-DD HH24:00:00').label('timestamp'),
                 func.avg(models.AirQualityReading.pm25).label('pm25'),
                 func.avg(models.AirQualityReading.pm10).label('pm10'),
                 func.avg(models.AirQualityReading.no2).label('no2'),
@@ -92,12 +105,14 @@ async def get_local_historical_data(db: Session, start_date: datetime, end_date:
                 models.AirQualityReading.timestamp.between(start_datetime, end_datetime)
             ).group_by(
                 func.date_trunc('hour', models.AirQualityReading.timestamp)
-            ).order_by('timestamp').all()
+            ).order_by(
+                func.date_trunc('hour', models.AirQualityReading.timestamp)
+            ).all()
             
         elif scale == "daily":
-            # Datos por día usando date_trunc de PostgreSQL
+            # Agrupar por día usando DATE_TRUNC de PostgreSQL
             result = db.query(
-                func.date_trunc('day', models.AirQualityReading.timestamp).label('timestamp'),
+                func.to_char(func.date_trunc('day', models.AirQualityReading.timestamp), 'YYYY-MM-DD').label('timestamp'),
                 func.avg(models.AirQualityReading.pm25).label('pm25'),
                 func.avg(models.AirQualityReading.pm10).label('pm10'),
                 func.avg(models.AirQualityReading.no2).label('no2'),
@@ -107,12 +122,14 @@ async def get_local_historical_data(db: Session, start_date: datetime, end_date:
                 models.AirQualityReading.timestamp.between(start_datetime, end_datetime)
             ).group_by(
                 func.date_trunc('day', models.AirQualityReading.timestamp)
-            ).order_by('timestamp').all()
+            ).order_by(
+                func.date_trunc('day', models.AirQualityReading.timestamp)
+            ).all()
             
         else:  # monthly
-            # Datos por mes usando date_trunc de PostgreSQL
+            # Agrupar por mes usando DATE_TRUNC de PostgreSQL
             result = db.query(
-                func.date_trunc('month', models.AirQualityReading.timestamp).label('timestamp'),
+                func.to_char(func.date_trunc('month', models.AirQualityReading.timestamp), 'YYYY-MM-01').label('timestamp'),
                 func.avg(models.AirQualityReading.pm25).label('pm25'),
                 func.avg(models.AirQualityReading.pm10).label('pm10'),
                 func.avg(models.AirQualityReading.no2).label('no2'),
@@ -122,24 +139,27 @@ async def get_local_historical_data(db: Session, start_date: datetime, end_date:
                 models.AirQualityReading.timestamp.between(start_datetime, end_datetime)
             ).group_by(
                 func.date_trunc('month', models.AirQualityReading.timestamp)
-            ).order_by('timestamp').all()
+            ).order_by(
+                func.date_trunc('month', models.AirQualityReading.timestamp)
+            ).all()
         
         # Convertir a diccionarios
         data = []
         for row in result:
             data.append({
                 "timestamp": str(row.timestamp),
-                "pm25": float(row.pm25) if row.pm25 else 0,
-                "pm10": float(row.pm10) if row.pm10 else 0,
-                "no2": float(row.no2) if row.no2 else 0,
-                "o3": float(row.o3) if row.o3 else 0,
-                "co": float(row.co) if row.co else 0
+                "pm25": round(float(row.pm25), 2) if row.pm25 else 0,
+                "pm10": round(float(row.pm10), 2) if row.pm10 else 0,
+                "no2": round(float(row.no2), 2) if row.no2 else 0,
+                "o3": round(float(row.o3), 2) if row.o3 else 0,
+                "co": round(float(row.co), 3) if row.co else 0
             })
         
+        logger.info(f"Consulta PostgreSQL exitosa: {len(data)} registros agrupados por {scale}")
         return data
         
     except Exception as e:
-        logger.error(f"Error consultando base de datos local: {str(e)}")
+        logger.error(f"Error consultando base de datos local: {str(e)}", exc_info=True)
         return []
 
 async def fetch_historical_from_api(start_date: datetime, end_date: datetime) -> List[Dict]:
@@ -184,18 +204,23 @@ async def fetch_historical_from_api(start_date: datetime, end_date: datetime) ->
                 # Procesar los datos
                 for i in range(len(times)):
                     try:
-                        if all(hourly_data.get(key, [])[i] is not None for key in 
-                               ['pm2_5', 'pm10', 'nitrogen_dioxide', 'ozone', 'carbon_monoxide']):
+                        pm25_val = hourly_data.get('pm2_5', [])[i] if i < len(hourly_data.get('pm2_5', [])) else None
+                        pm10_val = hourly_data.get('pm10', [])[i] if i < len(hourly_data.get('pm10', [])) else None
+                        no2_val = hourly_data.get('nitrogen_dioxide', [])[i] if i < len(hourly_data.get('nitrogen_dioxide', [])) else None
+                        o3_val = hourly_data.get('ozone', [])[i] if i < len(hourly_data.get('ozone', [])) else None
+                        co_val = hourly_data.get('carbon_monoxide', [])[i] if i < len(hourly_data.get('carbon_monoxide', [])) else None
+                        
+                        if pm25_val is not None:
                             all_data.append({
                                 'timestamp': times[i],
-                                'pm25': float(hourly_data['pm2_5'][i]),
-                                'pm10': float(hourly_data['pm10'][i]),
-                                'no2': float(hourly_data['nitrogen_dioxide'][i]),
-                                'o3': float(hourly_data['ozone'][i]),
-                                'co': float(hourly_data['carbon_monoxide'][i]) / 1000.0,
+                                'pm25': float(pm25_val) if pm25_val else 0,
+                                'pm10': float(pm10_val) if pm10_val else 0,
+                                'no2': float(no2_val) if no2_val else 0,
+                                'o3': float(o3_val) if o3_val else 0,
+                                'co': float(co_val) / 1000.0 if co_val else 0,
                                 'source': 'openmeteo'
                             })
-                    except (IndexError, TypeError, ValueError):
+                    except (IndexError, TypeError, ValueError) as e:
                         continue
                 
                 logger.info(f"Obtenidos {len(times)} registros de Open Meteo")
@@ -222,17 +247,26 @@ async def store_historical_data(db: Session, data: List[Dict]):
         
     try:
         stored_count = 0
+        skipped_count = 0
+        
         for record in data:
             try:
+                # Parsear timestamp
+                timestamp_str = record['timestamp']
+                if 'T' in timestamp_str:
+                    timestamp = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00').replace('+00:00', ''))
+                else:
+                    timestamp = datetime.strptime(timestamp_str, "%Y-%m-%d %H:%M")
+                
                 # Verificar si el registro ya existe
                 existing = db.query(models.AirQualityReading).filter(
-                    models.AirQualityReading.timestamp == record['timestamp'],
-                    models.AirQualityReading.source == record['source']
+                    models.AirQualityReading.timestamp == timestamp,
+                    models.AirQualityReading.source == record.get('source', 'openmeteo')
                 ).first()
                 
                 if not existing:
                     reading = models.AirQualityReading(
-                        timestamp=datetime.fromisoformat(record['timestamp']),
+                        timestamp=timestamp,
                         latitude=19.5438,
                         longitude=-96.9102,
                         pm25=record['pm25'],
@@ -240,7 +274,7 @@ async def store_historical_data(db: Session, data: List[Dict]):
                         no2=record['no2'],
                         o3=record['o3'],
                         co=record['co'],
-                        source=record['source']
+                        source=record.get('source', 'openmeteo')
                     )
                     db.add(reading)
                     stored_count += 1
@@ -249,15 +283,18 @@ async def store_historical_data(db: Session, data: List[Dict]):
                     if stored_count % 100 == 0:
                         db.commit()
                         logger.info(f"Almacenados {stored_count} registros hasta ahora...")
+                else:
+                    skipped_count += 1
                         
             except Exception as e:
                 logger.error(f"Error almacenando registro individual: {str(e)}")
+                # Hacer rollback del registro actual pero continuar con los demás
                 db.rollback()
                 continue
         
         # Commit final
         db.commit()
-        logger.info(f"Almacenados {stored_count} registros históricos en total")
+        logger.info(f"Almacenados {stored_count} registros históricos en total (omitidos {skipped_count} duplicados)")
         
     except Exception as e:
         logger.error(f"Error almacenando datos históricos: {str(e)}")
@@ -275,12 +312,12 @@ def calculate_statistics(data: List[Dict]) -> Dict:
     pollutants = ['pm25', 'pm10', 'no2', 'o3', 'co']
     
     for pollutant in pollutants:
-        values = [d[pollutant] for d in data if d.get(pollutant) is not None]
+        values = [d[pollutant] for d in data if d.get(pollutant) is not None and d.get(pollutant) > 0]
         if values:
             stats[pollutant] = {
-                'min': min(values),
-                'max': max(values),
-                'avg': sum(values) / len(values),
+                'min': round(min(values), 2),
+                'max': round(max(values), 2),
+                'avg': round(sum(values) / len(values), 2),
                 'count': len(values)
             }
         else:
@@ -292,6 +329,3 @@ def calculate_statistics(data: List[Dict]) -> Dict:
             }
     
     return stats
-
-# Importar models al final para evitar importación circular
-import models
