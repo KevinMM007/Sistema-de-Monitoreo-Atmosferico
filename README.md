@@ -1,251 +1,218 @@
-# Sistema de Estimación y Diagnóstico de Calidad del Aire - Xalapa, Veracruz
+# 🚀 MEJORAS IMPORTANTES - Instrucciones de Instalación
 
-## Descripción General
+Este paquete contiene las 5 mejoras importantes recomendadas para el Sistema de Monitoreo de Calidad del Aire.
 
-Sistema integral para monitorear, estimar y predecir la calidad del aire en la ciudad de Xalapa, Veracruz, México. El sistema combina datos de múltiples fuentes (contaminantes atmosféricos, tráfico vehicular, condiciones meteorológicas) para proporcionar información en tiempo real y predicciones futuras sobre la calidad del aire.
-
-## Características Principales
-
-### 1. **Monitoreo en Tiempo Real**
-- Recolección de datos de contaminantes (PM2.5, PM10, NO₂, O₃, CO)
-- Integración con APIs de calidad del aire (OpenMeteo)
-- Datos de tráfico vehicular en tiempo real (TomTom)
-- Condiciones meteorológicas actualizadas
-
-### 2. **Estimación por Zonas**
-- División de la ciudad en cuadrantes geográficos
-- Estimación localizada considerando el impacto del tráfico
-- Visualización interactiva en mapa con Google Maps
-
-### 3. **Predicción con Machine Learning**
-- Modelos de Random Forest para predicción de contaminantes
-- Predicciones hasta 24 horas en el futuro
-- Análisis de importancia de características
-- Métricas de confianza del modelo
-
-### 4. **Sistema de Alertas**
-- Evaluación automática según normativa mexicana (NOM-025-SSA1-2021)
-- Niveles de alerta: Bueno, Moderado, Insalubre, Muy Insalubre, Peligroso
-- Recomendaciones específicas para la población
-- Cálculo del Índice de Calidad del Aire (AQI)
-
-### 5. **Generación de Reportes**
-- Reportes PDF descargables
-- Análisis histórico de datos
-- Estadísticas y tendencias
-
-## Arquitectura del Sistema
+## 📦 Contenido del Paquete
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                         Frontend (React)                      │
-│  ┌─────────────┐  ┌──────────────┐  ┌──────────────────┐   │
-│  │   Dashboard  │  │    Mapas     │  │ Alertas/Predict. │   │
-│  └─────────────┘  └──────────────┘  └──────────────────┘   │
-└─────────────────────────────┬───────────────────────────────┘
-                              │ HTTP/REST API
-┌─────────────────────────────┴───────────────────────────────┐
-│                      Backend (FastAPI)                        │
-│  ┌─────────────┐  ┌──────────────┐  ┌──────────────────┐   │
-│  │   Endpoints │  │   Collectors │  │   ML Estimator   │   │
-│  └─────────────┘  └──────────────┘  └──────────────────┘   │
-│  ┌─────────────┐  ┌──────────────┐  ┌──────────────────┐   │
-│  │Alert System │  │     Models   │  │  Repositories    │   │
-│  └─────────────┘  └──────────────┘  └──────────────────┘   │
-└─────────────────────────────┬───────────────────────────────┘
-                              │
-┌─────────────────────────────┴───────────────────────────────┐
-│                    Base de Datos (PostgreSQL)                │
-│  ┌─────────────┐  ┌──────────────┐  ┌──────────────────┐   │
-│  │ Air Quality │  │Traffic Data  │  │   Predictions    │   │
-│  │  Readings   │  │              │  │                  │   │
-│  └─────────────┘  └──────────────┘  └──────────────────┘   │
-│  ┌─────────────┐  ┌──────────────┐                          │
-│  │  Quadrant   │  │Alert History │                          │
-│  │ Statistics  │  │              │                          │
-│  └─────────────┘  └──────────────┘                          │
-└──────────────────────────────────────────────────────────────┘
+mejoras_importantes/
+├── backend/
+│   ├── main.py              # Main.py actualizado con Swagger y tags
+│   ├── rate_limiter.py      # Módulo de rate limiting
+│   └── email_validator.py   # Validación de email mejorada
+├── frontend/
+│   └── src/
+│       ├── App.jsx          # Botón "Generando..." mejorado
+│       └── utils/
+│           ├── index.js     # Exportaciones actualizadas
+│           └── timeAgo.js   # Fechas amigables ("Hace 5 min")
+└── README.md                # Este archivo
 ```
 
-## Tecnologías Utilizadas
+---
 
-### Backend
-- **FastAPI**: Framework web moderno y rápido
-- **SQLAlchemy**: ORM para manejo de base de datos
-- **PostgreSQL**: Base de datos relacional
-- **Pandas/NumPy**: Procesamiento de datos
-- **Scikit-learn**: Machine Learning
-- **Python 3.8+**
+## 📋 Resumen de Mejoras
 
-### Frontend
-- **React 18**: Biblioteca de UI
-- **Tailwind CSS**: Framework de estilos
-- **Recharts**: Visualización de gráficos
-- **Google Maps API**: Mapas interactivos
-- **Vite**: Build tool
+| # | Mejora | Tiempo | Descripción |
+|---|--------|--------|-------------|
+| 1 | Swagger/OpenAPI documentado | 20 min | Tags organizados y documentación profesional |
+| 2 | Rate limiting básico | 30 min | Protección contra abuso de la API |
+| 3 | Validación de email mejorada | 15 min | Validación RFC-compliant, bloqueo de emails temporales |
+| 4 | Botón "Generando..." | 10 min | UX mejorada al generar reportes PDF |
+| 5 | Fechas amigables | 20 min | "Hace 5 min" en lugar de timestamps |
 
-### APIs Externas
-- **OpenMeteo**: Datos de calidad del aire y meteorología
-- **TomTom**: Datos de tráfico en tiempo real
-- **Google Maps**: Visualización de mapas
+---
 
-## Instalación y Configuración
+## 🔧 Instrucciones de Instalación
 
-### Prerrequisitos
-- Python 3.8 o superior
-- Node.js 16 o superior
-- PostgreSQL 13 o superior
-- Git
+### Paso 1: Backup (IMPORTANTE)
+Antes de hacer cualquier cambio, haz backup de tus archivos actuales:
 
-### Backend
-
-1. Clonar el repositorio:
 ```bash
-git clone [URL_DEL_REPOSITORIO]
-cd air-quality-project/air-quality-system/backend
+cd C:\Users\moral\Documents\ProyectoResidencias\air-quality-project\air-quality-system
+
+# Crear carpeta de backup
+mkdir backup_antes_mejoras
+
+# Copiar archivos importantes
+copy backend\main.py backup_antes_mejoras\
+copy frontend\src\App.jsx backup_antes_mejoras\
 ```
 
-2. Crear entorno virtual:
+### Paso 2: Instalar archivos del Backend
+
 ```bash
-python -m venv venv
-# Windows
-venv\Scripts\activate
-# Linux/Mac
-source venv/bin/activate
+cd backend
+
+# Copiar los nuevos módulos
+copy [ruta_descarga]\mejoras_importantes\backend\rate_limiter.py .
+copy [ruta_descarga]\mejoras_importantes\backend\email_validator.py .
+
+# Reemplazar main.py (contiene Swagger mejorado)
+copy [ruta_descarga]\mejoras_importantes\backend\main.py .
 ```
 
-3. Instalar dependencias:
+### Paso 3: Instalar archivos del Frontend
+
 ```bash
-pip install -r requirements.txt
+cd ..\frontend\src
+
+# Reemplazar App.jsx (botón "Generando...")
+copy [ruta_descarga]\mejoras_importantes\frontend\src\App.jsx .
+
+# Agregar utilidades de fechas
+copy [ruta_descarga]\mejoras_importantes\frontend\src\utils\timeAgo.js utils\
+copy [ruta_descarga]\mejoras_importantes\frontend\src\utils\index.js utils\
 ```
 
-4. Configurar variables de entorno:
-- Copiar `.env.example` a `.env`
-- Configurar las API keys y credenciales de base de datos
+### Paso 4: Reiniciar los servidores
 
-5. Inicializar base de datos:
 ```bash
-# Crear base de datos en PostgreSQL
-createdb air_quality_db
+# En terminal 1 (Backend):
+cd backend
+# Ctrl+C para detener si está corriendo
+uvicorn main:app --reload --port 8000
 
-# Las tablas se crean automáticamente al iniciar el servidor
-```
-
-6. Iniciar servidor:
-```bash
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
-```
-
-### Frontend
-
-1. Navegar a la carpeta frontend:
-```bash
-cd ../frontend
-```
-
-2. Instalar dependencias:
-```bash
-npm install
-```
-
-3. Configurar variables de entorno:
-- Crear archivo `.env` con:
-```
-VITE_GOOGLE_MAPS_API_KEY=tu_api_key_aqui
-VITE_API_URL=http://localhost:8000
-```
-
-4. Iniciar servidor de desarrollo:
-```bash
+# En terminal 2 (Frontend):
+cd frontend
 npm run dev
 ```
 
-## Uso del Sistema
+---
 
-### 1. Acceder al Dashboard
-- Abrir navegador en `http://localhost:5173`
-- El dashboard mostrará automáticamente los datos más recientes
+## ✅ Verificación de las Mejoras
 
-### 2. Visualizar Mapa de Contaminación
-- El mapa muestra la ciudad dividida en cuadrantes
-- Colores indican nivel de contaminación
-- Click en cuadrantes para ver detalles
+### 1. Swagger/OpenAPI (Mejora 1)
+Abre en el navegador:
+- **Swagger UI**: http://localhost:8000/docs
+- **ReDoc**: http://localhost:8000/redoc
 
-### 3. Ver Alertas y Recomendaciones
-- Pestaña de alertas muestra el estado actual
-- Recomendaciones específicas según el nivel
-- Historial de alertas de las últimas 24 horas
+Deberías ver:
+- Tags organizados con emojis (🌬️ Calidad del Aire, 🔔 Alertas, etc.)
+- Descripciones detalladas de cada endpoint
+- Información de rate limiting en la descripción
 
-### 4. Consultar Predicciones
-- Gráficos de predicción para las próximas 24 horas
-- Nivel de confianza del modelo
-- Tendencias esperadas
-
-### 5. Generar Reportes
-- Botón "Descargar Reporte" genera PDF
-- Incluye datos actuales y recomendaciones
-- Formato listo para imprimir
-
-## API Endpoints
-
-### Calidad del Aire
-- `GET /api/air-quality` - Datos actuales
-- `GET /api/air-quality/latest` - Últimas lecturas
-- `GET /api/air-quality/history` - Datos históricos
-
-### Tráfico
-- `GET /api/traffic` - Datos de tráfico actual
-
-### Predicciones ML
-- `POST /api/ml/train` - Entrenar modelos
-- `GET /api/ml/predict` - Obtener predicciones
-
-### Alertas
-- `GET /api/alerts/current` - Alerta actual
-- `GET /api/alerts/history` - Historial de alertas
-- `GET /api/alerts/daily-report` - Reporte diario
-
-### Meteorología
-- `GET /api/weather` - Condiciones actuales
-
-## Mantenimiento
-
-### Entrenamiento de Modelos
-Se recomienda reentrenar los modelos semanalmente:
+### 2. Rate Limiting (Mejora 2)
+Verifica el endpoint de estadísticas:
 ```bash
-curl -X POST http://localhost:8000/api/ml/train
+curl http://localhost:8000/api/rate-limit-stats
 ```
 
-### Respaldo de Base de Datos
-```bash
-pg_dump air_quality_db > backup_$(date +%Y%m%d).sql
+Respuesta esperada:
+```json
+{
+  "active_entries": 0,
+  "limits_config": {
+    "default": {"requests": 100, "window_seconds": 60},
+    "strict": {"requests": 5, "window_seconds": 60},
+    "moderate": {"requests": 30, "window_seconds": 60}
+  },
+  "entries_cleaned": 0
+}
 ```
 
-### Monitoreo
-- Verificar logs del servidor regularmente
-- Monitorear uso de API (límites de rate)
-- Revisar precisión de predicciones
+### 3. Validación de Email (Mejora 3)
+Prueba suscribirse con un email inválido:
+- Email temporal (10minutemail.com) → Bloqueado
+- Typos comunes (gmial.com) → Sugerencias
+- Formato inválido → Error claro
 
-## Contribuir
+### 4. Botón "Generando..." (Mejora 4)
+1. Abre el dashboard
+2. Haz clic en "DESCARGAR REPORTE"
+3. Deberías ver:
+   - Spinner animado
+   - Texto "GENERANDO..."
+   - Color amarillo mientras genera
+4. Cuando termine, vuelve al botón normal verde
 
-1. Fork el proyecto
-2. Crear rama de feature (`git checkout -b feature/AmazingFeature`)
-3. Commit cambios (`git commit -m 'Add some AmazingFeature'`)
-4. Push a la rama (`git push origin feature/AmazingFeature`)
-5. Abrir Pull Request
+### 5. Fechas Amigables (Mejora 5)
+Esta mejora está lista para usar. Para aplicarla en componentes:
 
-## Licencia
+```jsx
+import { timeAgo, formatRelativeDate } from '../utils';
 
-Este proyecto es parte de una tesis académica. Todos los derechos reservados.
+// Ejemplo de uso:
+<span>{timeAgo(timestamp)}</span>  // "Hace 5 min"
+<span>{formatRelativeDate(timestamp)}</span>  // "Hoy, 3:45 p.m."
+```
 
-## Contacto
+---
 
-- Autor: [Tu Nombre]
-- Email: [Tu Email]
-- Institución: [Tu Universidad]
+## 🎨 Dónde Aplicar Fechas Amigables (Opcional)
 
-## Agradecimientos
+Puedes usar `timeAgo` en estos componentes para mejor UX:
 
-- OpenMeteo por proporcionar datos de calidad del aire
-- TomTom por datos de tráfico
-- Comunidad de FastAPI y React
+1. **DataStatus.jsx** - "Última actualización: Hace 2 min"
+2. **NotificationsTab.jsx** - Historial de alertas
+3. **HistoricalChart.jsx** - Tooltips del gráfico
+
+Ejemplo de modificación en DataStatus:
+
+```jsx
+import { timeAgo } from '../../utils';
+
+// Cambiar:
+<span>Última actualización: {lastUpdate.toLocaleTimeString()}</span>
+
+// Por:
+<span>Última actualización: {timeAgo(lastUpdate)}</span>
+```
+
+---
+
+## 📊 Nuevos Endpoints Disponibles
+
+| Endpoint | Descripción |
+|----------|-------------|
+| `GET /api/rate-limit-stats` | Estadísticas del rate limiter |
+| `GET /docs` | Swagger UI (mejorado) |
+| `GET /redoc` | ReDoc (alternativa a Swagger) |
+
+---
+
+## 🔒 Límites de Rate Limiting
+
+| Tipo | Límite | Aplicado a |
+|------|--------|------------|
+| `default` | 100 req/min | Endpoints generales |
+| `strict` | 5 req/min | Suscripciones de email |
+| `moderate` | 30 req/min | Endpoints costosos |
+
+---
+
+## 🐛 Solución de Problemas
+
+### Error: "No module named 'rate_limiter'"
+Asegúrate de que `rate_limiter.py` esté en la carpeta `backend/`
+
+### Error: "No module named 'email_validator'"
+Asegúrate de que `email_validator.py` esté en la carpeta `backend/`
+
+### El botón no muestra "Generando..."
+Verifica que hayas copiado el `App.jsx` actualizado
+
+### Swagger no muestra los tags
+Reinicia el servidor backend completamente (Ctrl+C y uvicorn de nuevo)
+
+---
+
+## 📝 Notas Técnicas
+
+- **Rate Limiting**: Usa almacenamiento en memoria (se reinicia con el servidor)
+- **Email Validation**: Sigue RFC 5321/5322, bloquea 20+ dominios temporales
+- **Fechas Amigables**: Soporta español (México), auto-detecta intervalos
+
+---
+
+¡Listo! Con estas mejoras tu sistema será más profesional y seguro. 🎉

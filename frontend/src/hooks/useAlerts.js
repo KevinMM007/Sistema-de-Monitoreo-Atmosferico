@@ -3,7 +3,7 @@
  * Fase 4 - Optimización: Lógica reutilizable
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { alertService, trendsService } from '../services/api';
 import { UPDATE_INTERVALS, ALERT_CONFIG } from '../utils/constants';
 
@@ -38,10 +38,22 @@ const useAlerts = (options = {}) => {
     const [historyError, setHistoryError] = useState(null);
     
     // Estados de suscripción
-    const [email, setEmail] = useState('');
+    const [emailState, setEmailState] = useState('');
     const [isSubscribed, setIsSubscribed] = useState(false);
     const [subscriptionLoading, setSubscriptionLoading] = useState(false);
     const [subscriptionMessage, setSubscriptionMessage] = useState('');
+    
+    // Ref para mantener el email actualizado (evita stale closure)
+    const emailRef = useRef('');
+    
+    // Wrapper para setEmail que actualiza tanto el estado como el ref
+    const setEmail = useCallback((value) => {
+        emailRef.current = value;
+        setEmailState(value);
+    }, []);
+    
+    // Getter para email (usa el ref para valor actual)
+    const email = emailState;
     
     // Estados de notificaciones push
     const [pushPermission, setPushPermission] = useState('default');
@@ -180,10 +192,27 @@ const useAlerts = (options = {}) => {
 
     /**
      * Suscribe un email a las alertas
+     * NOTA: Usa emailRef.current para obtener el valor más reciente del email
      */
-    const subscribe = useCallback(async (emailToSubscribe = email) => {
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(emailToSubscribe)) {
+    const subscribe = useCallback(async (emailToSubscribe = null) => {
+        // Obtener el email de forma segura (asegurar que sea string)
+        let emailToUse = '';
+        if (typeof emailToSubscribe === 'string' && emailToSubscribe) {
+            emailToUse = emailToSubscribe.trim();
+        } else if (typeof emailRef.current === 'string' && emailRef.current) {
+            emailToUse = emailRef.current.trim();
+        } else if (typeof emailState === 'string' && emailState) {
+            emailToUse = emailState.trim();
+        }
+        
+        console.log('📧 Intentando suscribir:', emailToUse);
+        console.log('📧 emailRef.current:', emailRef.current);
+        console.log('📧 emailState actual:', emailState);
+        
+        // Validación de email más robusta
+        const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+        if (!emailToUse || !emailRegex.test(emailToUse)) {
+            console.log('❌ Email inválido:', emailToUse, '- Longitud:', emailToUse.length);
             setSubscriptionMessage('❌ Por favor ingrese un correo electrónico válido');
             setTimeout(() => setSubscriptionMessage(''), 3000);
             return false;
@@ -192,9 +221,9 @@ const useAlerts = (options = {}) => {
         setSubscriptionLoading(true);
         
         try {
-            await alertService.subscribe(emailToSubscribe);
-            localStorage.setItem('notificationEmail', emailToSubscribe);
-            setEmail(emailToSubscribe);
+            await alertService.subscribe(emailToUse);
+            localStorage.setItem('notificationEmail', emailToUse);
+            setEmail(emailToUse);
             setIsSubscribed(true);
             setSubscriptionMessage('✅ Suscripción exitosa. Recibirás alertas cuando la calidad del aire empeore.');
             return true;
@@ -206,17 +235,21 @@ const useAlerts = (options = {}) => {
             setSubscriptionLoading(false);
             setTimeout(() => setSubscriptionMessage(''), 5000);
         }
-    }, [email]);
+    }, [emailState]); // Agregar emailState como dependencia para acceso al valor actual
 
     /**
      * Desuscribe un email de las alertas
+     * NOTA: Usa emailRef.current para obtener el valor más reciente del email
      */
-    const unsubscribe = useCallback(async (emailToUnsubscribe = email) => {
+    const unsubscribe = useCallback(async (emailToUnsubscribe = null) => {
+        // Usar el email pasado como argumento, o el valor actual del ref
+        const emailToUse = emailToUnsubscribe || emailRef.current;
+        
         setSubscriptionLoading(true);
         
         try {
-            console.log('Intentando desuscribir:', emailToUnsubscribe);
-            const response = await alertService.unsubscribe(emailToUnsubscribe);
+            console.log('Intentando desuscribir:', emailToUse);
+            const response = await alertService.unsubscribe(emailToUse);
             console.log('Respuesta de desuscripción:', response);
             
             // Actualizar estado local

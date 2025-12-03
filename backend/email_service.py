@@ -245,9 +245,17 @@ Para desactivar estas notificaciones, ingresa al sistema y desuscríbete.
     
     def send_welcome_email(self, to_email: str) -> bool:
         """Envía un correo de bienvenida al suscribirse"""
+        print(f"\n📧 Intentando enviar correo de bienvenida a: {to_email}")
+        
         if not self.configured:
-            logger.warning("No se puede enviar correo de bienvenida - servicio no configurado")
+            print("  ❌ Servicio de email NO configurado")
+            print(f"     EMAIL_HOST_USER: {'configurado' if self.username else 'FALTA'}")
+            print(f"     EMAIL_HOST_PASSWORD: {'configurado' if self.password else 'FALTA'}")
             return False
+        
+        print(f"  ✅ Configuración de email encontrada")
+        print(f"     Host: {self.host}:{self.port}")
+        print(f"     Usuario: {self.username}")
 
         try:
             msg = MIMEMultipart()
@@ -293,18 +301,32 @@ Para desactivar estas notificaciones, ingresa al sistema y desuscríbete.
             """
 
             msg.attach(MIMEText(body, 'html'))
+            
+            print(f"  📤 Conectando al servidor SMTP...")
 
             with smtplib.SMTP(self.host, self.port) as server:
                 if self.use_tls:
+                    print(f"  🔐 Iniciando TLS...")
                     server.starttls()
+                print(f"  🔑 Autenticando...")
                 server.login(self.username, self.password)
+                print(f"  📨 Enviando mensaje...")
                 server.send_message(msg)
 
-            logger.info(f"✓ Correo de bienvenida enviado a {to_email}")
+            print(f"  ✅ Correo de bienvenida enviado exitosamente a {to_email}")
             return True
 
+        except smtplib.SMTPAuthenticationError as e:
+            print(f"  ❌ ERROR DE AUTENTICACIÓN SMTP: {str(e)}")
+            print(f"     Verifica que la contraseña sea una 'Contraseña de aplicación' de Google")
+            return False
+        except smtplib.SMTPException as e:
+            print(f"  ❌ ERROR SMTP: {str(e)}")
+            return False
         except Exception as e:
-            logger.error(f"✗ Error enviando correo de bienvenida: {str(e)}")
+            print(f"  ❌ ERROR INESPERADO enviando correo: {str(e)}")
+            import traceback
+            traceback.print_exc()
             return False
 
     def send_test_email(self, to_email: str) -> bool:

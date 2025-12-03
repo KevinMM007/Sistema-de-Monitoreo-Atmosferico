@@ -1,9 +1,23 @@
 /**
  * Servicio centralizado de API para el Sistema de Calidad del Aire
  * Fase 4 - Optimización: Centralización de llamadas a API
+ * 
+ * CONFIGURACIÓN:
+ * - Desarrollo: usa http://localhost:8000/api (definido en .env)
+ * - Producción: usa la URL del backend desplegado (definido en .env.production)
  */
 
-const API_BASE_URL = '/api';
+// Obtener URL base desde variables de entorno de Vite
+// En desarrollo: VITE_API_URL=http://localhost:8000
+// En producción: VITE_API_URL=https://tu-backend.railway.app
+const API_BASE_URL = import.meta.env.VITE_API_URL 
+    ? `${import.meta.env.VITE_API_URL}/api`
+    : '/api';  // Fallback a ruta relativa
+
+// Log para debugging (solo en desarrollo)
+if (import.meta.env.DEV) {
+    console.log('🔧 API Base URL:', API_BASE_URL);
+}
 
 // Configuración por defecto para fetch
 const defaultConfig = {

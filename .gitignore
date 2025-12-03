@@ -12,6 +12,9 @@ env/
 # Archivos de configuración local
 *.local
 .env.local
+frontend/.env
+frontend/.env.production
+frontend/.env.local
 
 # IDEs
 .vscode/

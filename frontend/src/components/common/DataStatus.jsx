@@ -1,21 +1,8 @@
-/**
- * Componente DataStatus - Indicador de estado de datos
- * Fase 4 - Optimización: Componentes UI comunes
- * 
- * IMPORTANTE PARA TESIS:
- * Este componente muestra claramente la fuente y autenticidad de los datos
- */
-
 import React from 'react';
+import { timeAgo } from '../../utils';
 
 /**
- * Barra de estado de datos (real/simulado/error)
- * @param {Object} props
- * @param {string} props.status - Estado: 'real', 'fallback', 'loading', 'error'
- * @param {Date} props.lastUpdate - Última actualización
- * @param {string} props.errorMessage - Mensaje de error (si aplica)
- * @param {Function} props.onRetry - Función para reintentar
- * @param {string} props.className - Clases adicionales
+ * Barra de estado de datos (real/simulado/error) - VERSIÓN COMPACTA
  */
 const DataStatus = ({
     status = 'loading',
@@ -26,73 +13,62 @@ const DataStatus = ({
 }) => {
     const statusConfig = {
         real: {
-            bg: 'bg-green-50 border-green-300',
+            bg: 'bg-green-50 border-green-200',
             text: 'text-green-800',
             icon: (
                 <div className="relative flex items-center justify-center">
-                    <span className="absolute w-3 h-3 bg-green-500 rounded-full animate-ping opacity-75"></span>
-                    <span className="w-3 h-3 bg-green-500 rounded-full"></span>
+                    <span className="absolute w-2 h-2 bg-green-500 rounded-full animate-ping opacity-75"></span>
+                    <span className="w-2 h-2 bg-green-500 rounded-full"></span>
                 </div>
             ),
             title: 'Datos en Tiempo Real',
             description: (
-                <span>
-                    Fuente: <strong>Open-Meteo Air Quality API</strong> 
-                    {' '}(Modelo CAMS - Copernicus Atmosphere Monitoring Service)
+                <span className="text-xs">
+                    Fuente: <strong>Modelo CAMS - Copernicus/ECMWF</strong>
+                    <span className="hidden sm:inline"> · </span>
+                    <span className="block sm:inline opacity-80">
+                        🛠️ <em>Estimación satelital - No hay estaciones físicas en Xalapa</em>
+                    </span>
                 </span>
             ),
-            badge: (
-                <span className="ml-2 px-2 py-0.5 bg-green-600 text-white text-xs rounded-full">
-                    ✓ DATOS VERIFICADOS
-                </span>
-            )
         },
         fallback: {
             bg: 'bg-yellow-50 border-yellow-300',
             text: 'text-yellow-800',
             icon: (
-                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                 </svg>
             ),
-            title: '⚠️ DATOS SIMULADOS - API No Disponible',
+            title: '⚠️ DATOS SIMULADOS',
             description: (
-                <span>
-                    Los datos mostrados son <strong>estimaciones de respaldo</strong> basadas en patrones típicos. 
-                    <br/>
-                    <em>No son datos reales de la API.</em>
+                <span className="text-xs">
+                    Datos de respaldo - <em>API no disponible</em>
                 </span>
             ),
-            badge: (
-                <span className="ml-2 px-2 py-0.5 bg-yellow-600 text-white text-xs rounded-full">
-                    DATOS SIMULADOS
-                </span>
-            )
         },
         loading: {
-            bg: 'bg-blue-50 border-blue-300',
+            bg: 'bg-blue-50 border-blue-200',
             text: 'text-blue-800',
             icon: (
-                <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
             ),
-            title: 'Conectando con Open-Meteo API...',
+            title: 'Conectando...',
             description: null,
-            badge: null
         },
         error: {
             bg: 'bg-red-50 border-red-300',
             text: 'text-red-800',
             icon: (
-                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
                 </svg>
             ),
             title: 'Error de Conexión',
-            description: errorMessage || 'No se pudieron obtener los datos de la API.',
-            badge: null
+            description: <span className="text-xs">{errorMessage || 'No se pudieron obtener los datos.'}</span>,
         },
     };
 
@@ -100,36 +76,46 @@ const DataStatus = ({
 
     return (
         <div className={`
-            p-4 rounded-lg border animate-fade-in
+            px-4 py-2 rounded-lg border animate-fade-in
             ${config.bg} ${config.text}
             ${className}
         `}>
-            <div className="flex items-center justify-between flex-wrap gap-2">
-                <div className="flex items-center gap-3">
-                    {config.icon}
-                    <div>
-                        <div className="font-semibold flex items-center flex-wrap">
-                            {config.title}
-                            {config.badge}
+            <div className="flex items-center justify-between gap-3">
+                {/* Lado izquierdo: icono + info */}
+                <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <div className="flex-shrink-0">
+                        {config.icon}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-semibold text-sm whitespace-nowrap">
+                                {config.title}
+                            </span>
+                            {status === 'fallback' && (
+                                <span className="px-1.5 py-0.5 bg-yellow-500 text-white text-xs rounded">
+                                    SIMULADOS
+                                </span>
+                            )}
                         </div>
                         {config.description && (
-                            <div className="text-sm mt-1 opacity-90">
+                            <div className="text-xs opacity-90 truncate sm:whitespace-normal">
                                 {config.description}
                             </div>
                         )}
                     </div>
                 </div>
                 
-                <div className="flex items-center gap-3 text-sm">
+                {/* Lado derecho: última actualización */}
+                <div className="flex items-center gap-2 flex-shrink-0">
                     {lastUpdate && (
-                        <div>
-                            Última actualización: <strong>{lastUpdate.toLocaleTimeString('es-MX')}</strong>
+                        <div className="text-xs whitespace-nowrap">
+                            Última actualización: <strong>{timeAgo(lastUpdate)}</strong>
                         </div>
                     )}
                     {status === 'error' && onRetry && (
                         <button
                             onClick={onRetry}
-                            className="px-3 py-1 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700 transition-colors"
+                            className="px-2 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700 transition-colors"
                         >
                             Reintentar
                         </button>
@@ -243,7 +229,6 @@ export const DataSourceBadge = ({
 
 /**
  * 🔍 Panel de Verificación de Datos para Tesis
- * Muestra información detallada sobre la fuente y autenticidad de los datos
  */
 export const DataVerificationPanel = ({
     isRealData = false,
@@ -286,19 +271,6 @@ export const DataVerificationPanel = ({
                             <p><strong>Última obtención:</strong> {new Date(lastFetch).toLocaleString('es-MX')}</p>
                         )}
                     </div>
-                    {isRealData ? (
-                        <p className="mt-3 text-sm text-green-600 bg-green-100 p-2 rounded">
-                            📊 Los datos mostrados provienen de la <strong>API de Open-Meteo</strong>, 
-                            que utiliza el modelo <strong>CAMS (Copernicus Atmosphere Monitoring Service)</strong> 
-                            de la Unión Europea. Estos datos son aptos para uso en investigación académica.
-                        </p>
-                    ) : (
-                        <p className="mt-3 text-sm text-yellow-600 bg-yellow-100 p-2 rounded">
-                            ⚠️ Los datos mostrados son <strong>simulaciones de respaldo</strong> generadas 
-                            localmente debido a problemas de conexión con la API. 
-                            <strong>No deben usarse para investigación académica.</strong>
-                        </p>
-                    )}
                 </div>
             </div>
         </div>

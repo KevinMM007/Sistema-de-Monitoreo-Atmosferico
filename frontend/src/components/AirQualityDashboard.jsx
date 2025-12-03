@@ -2,8 +2,9 @@
  * AirQualityDashboard - Dashboard principal de calidad del aire
  * Fase 4 - Refactorizado: Usando hooks y componentes centralizados
  * 
- * NOTA: Las "Estadísticas Actuales" muestran valores BASE de Open-Meteo,
- * mientras que las "Zonas del Mapa" muestran valores AJUSTADOS por tráfico e infraestructura.
+ * 🆕 MEJORAS:
+ * - Eliminada leyenda redundante en "Estadísticas Actuales"
+ * - Agregado icono de información en el mapa
  */
 
 import React, { useState, useMemo, useCallback } from 'react';
@@ -41,9 +42,98 @@ import {
 } from '../utils';
 
 /**
+ * Componente de información del mapa (icono ℹ️)
+ */
+const MapInfoButton = () => {
+    const [isOpen, setIsOpen] = useState(false);
+
+    return (
+        <div className="relative">
+            {/* Botón de información */}
+            <button
+                onClick={() => setIsOpen(!isOpen)}
+                className={`
+                    w-8 h-8 rounded-full flex items-center justify-center
+                    transition-all duration-200 shadow-md
+                    ${isOpen 
+                        ? 'bg-blue-600 text-white' 
+                        : 'bg-white text-gray-600 hover:bg-blue-50 hover:text-blue-600'
+                    }
+                `}
+                title="Información sobre los datos"
+            >
+                <svg 
+                    className="w-5 h-5" 
+                    fill="none" 
+                    viewBox="0 0 24 24" 
+                    stroke="currentColor"
+                >
+                    <path 
+                        strokeLinecap="round" 
+                        strokeLinejoin="round" 
+                        strokeWidth={2} 
+                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" 
+                    />
+                </svg>
+            </button>
+
+            {/* Tarjeta de información */}
+            {isOpen && (
+                <>
+                    {/* Overlay para cerrar al hacer clic afuera */}
+                    <div 
+                        className="fixed inset-0 z-[999]"
+                        onClick={() => setIsOpen(false)}
+                    />
+                    
+                    {/* Tarjeta */}
+                    <div className="absolute bottom-10 right-0 z-[1000] w-72 animate-fade-in">
+                        <div className="bg-white rounded-lg shadow-xl border border-gray-200 p-4">
+                            {/* Header */}
+                            <div className="flex items-center justify-between mb-3">
+                                <h4 className="font-semibold text-gray-800 flex items-center gap-2">
+                                    <span className="text-blue-500">ℹ️</span>
+                                    Información del Mapa
+                                </h4>
+                                <button
+                                    onClick={() => setIsOpen(false)}
+                                    className="text-gray-400 hover:text-gray-600 transition-colors"
+                                >
+                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                </button>
+                            </div>
+                            
+                            {/* Contenido */}
+                            <div className="text-sm text-gray-600 space-y-2">
+                                <p>
+                                    Los valores por zona en el mapa incluyen ajustes basados en:
+                                </p>
+                                <ul className="space-y-1 ml-4">
+                                    <li className="flex items-start gap-2">
+                                        <span className="text-blue-500">🟢</span>
+                                        <span><strong>Tráfico en tiempo real</strong></span>
+                                    </li>
+                                    <li className="flex items-start gap-2">
+                                        <span className="text-orange-500">🟢</span>
+                                        <span><strong>Infraestructura vial</strong></span>
+                                    </li>
+                                </ul>
+                                <p className="text-xs text-gray-500 pt-2 border-t border-gray-100">
+                                    Pasa el cursor sobre cada zona para ver los detalles.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </>
+            )}
+        </div>
+    );
+};
+
+/**
  * Componente principal del Dashboard de Calidad del Aire
- * @param {Object} props
- * @param {boolean} props.isVisible - Si el dashboard es visible actualmente
  */
 const AirQualityDashboard = ({ isVisible = true }) => {
     // Estado local para controlar visualización
@@ -70,7 +160,7 @@ const AirQualityDashboard = ({ isVisible = true }) => {
     // Determinar si los datos están cargando
     const isLoading = airLoading && !airQualityData;
     
-    // Convertir zonas al formato del mapa (XALAPA_ZONES es un array)
+    // Convertir zonas al formato del mapa
     const mapZones = useMemo(() => {
         return XALAPA_ZONES.map(zone => ({
             name: zone.name,
@@ -94,12 +184,12 @@ const AirQualityDashboard = ({ isVisible = true }) => {
 
     return (
         <div className="p-4 w-full animate-fade-in">
-            {/* Indicador de estado de datos */}
+            {/* Indicador de estado de datos - COMPACTO */}
             <DataStatus
                 status={dataSource}
                 lastUpdate={lastUpdate}
                 errorMessage={airError}
-                className="mb-4"
+                className="mb-3"
             />
 
             {/* Grid principal: Mapa + Contaminantes */}
@@ -152,13 +242,18 @@ const AirQualityDashboard = ({ isVisible = true }) => {
                                 onClick={toggleZones}
                                 className="bg-white shadow"
                             >
-                                {showZones ? '🙈 Ocultar Cuadrantes' : '👁️ Ver Cuadrantes'}
+                                {showZones ? 'Ocultar Cuadrantes' : 'Ver Cuadrantes'}
                             </Button>
                         </div>
 
-                        {/* Leyenda del mapa */}
+                        {/* Leyenda del mapa - esquina inferior izquierda */}
                         <div className="absolute bottom-4 left-4 z-[1000]">
                             <MapLegend />
+                        </div>
+
+                        {/* 🆕 Botón de información - esquina inferior derecha */}
+                        <div className="absolute bottom-4 right-4 z-[1000]">
+                            <MapInfoButton />
                         </div>
                     </div>
                 </Card>
@@ -187,16 +282,11 @@ const AirQualityDashboard = ({ isVisible = true }) => {
                                 />
                             </div>
 
-                            {/* Estadísticas actuales */}
+                            {/* Estadísticas actuales - SIN LEYENDA */}
                             <div>
-                                <div className="flex items-center justify-between mb-2">
-                                    <h3 className="text-lg font-semibold text-gray-700">
-                                        Estadísticas Actuales
-                                    </h3>
-                                </div>
-                                <p className="text-xs text-gray-500 mb-3 italic">
-                                    📡 Datos base de Open-Meteo (CAMS) • Los valores por zona en el mapa incluyen ajustes por tráfico e infraestructura vial
-                                </p>
+                                <h3 className="text-lg font-semibold text-gray-700 mb-3">
+                                    Estadísticas Actuales
+                                </h3>
                                 <PollutantStats data={airQualityData} />
                             </div>
                         </div>

@@ -1,11 +1,20 @@
+import os
 from typing import Optional, List
 from datetime import datetime, date, time, timedelta
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
+
+# 🆕 MEJORAS: Rate Limiting y Validación de Email
+from rate_limiter import rate_limit_middleware_check, get_rate_limit_stats, cleanup_expired_entries
+from custom_email_validator import validate_email, validate_email_for_api, normalize_email
+from dotenv import load_dotenv
 # NOTA: Se eliminó 'import random' - NO usamos datos aleatorios
 from sqlalchemy import func, extract
 from sqlalchemy.orm import Session
 from data_collectors.air_quality_collector import OpenMeteoCollector, get_fallback_data
+
+# Cargar variables de entorno
+load_dotenv()
 # NOTA: AQICN removido - No hay estación disponible en Xalapa
 import models
 from database import get_db, engine
@@ -28,18 +37,122 @@ traffic_collector = TomTomTrafficCollector()
 ml_estimator = MLPollutionEstimator()
 alert_system = AlertSystem()
 
-# Crear la aplicación FastAPI
+# ============================================================================
+# CONFIGURACIÓN DE SWAGGER/OPENAPI - MEJORA DE DOCUMENTACIÓN
+# ============================================================================
+# Tags para organizar la documentación de la API
+# Cada tag agrupa endpoints relacionados con descripciones claras
+# ============================================================================
+tags_metadata = [
+    {
+        "name": "🏥 Estado del Sistema",
+        "description": "Endpoints para verificar el estado y salud del sistema."
+    },
+    {
+        "name": "🌬️ Calidad del Aire",
+        "description": "Datos de contaminantes atmosféricos (PM2.5, PM10, NO₂, O₃, CO) de Open-Meteo CAMS."
+    },
+    {
+        "name": "🚗 Tráfico",
+        "description": "Información de tráfico en tiempo real desde TomTom Traffic API."
+    },
+    {
+        "name": "🌤️ Clima",
+        "description": "Condiciones meteorológicas actuales de Xalapa."
+    },
+    {
+        "name": "🗺️ Zonas",
+        "description": "Análisis de contaminación por zonas geográficas de Xalapa."
+    },
+    {
+        "name": "🔔 Alertas",
+        "description": "Sistema de alertas y notificaciones por correo electrónico."
+    },
+    {
+        "name": "📊 Predicciones",
+        "description": "Predicciones y tendencias de calidad del aire usando ML."
+    },
+    {
+        "name": "📈 Comparaciones",
+        "description": "Comparaciones entre períodos de tiempo."
+    },
+    {
+        "name": "🔧 Diagnóstico",
+        "description": "Herramientas de diagnóstico y verificación de datos (útil para tesis)."
+    }
+]
+
+# Crear la aplicación FastAPI con documentación mejorada
 app = FastAPI(
     title="Sistema de Monitoreo de Calidad del Aire - Xalapa",
-    description="API para monitoreo de contaminantes atmosféricos usando Open-Meteo (CAMS) y TomTom Traffic",
-    version="2.0.0"
+    description="""
+## 🌍 API de Monitoreo Atmosférico para Xalapa, Veracruz
+
+Este sistema proporciona datos en tiempo real sobre la calidad del aire en Xalapa,
+utilizando múltiples fuentes de datos científicos.
+
+### 📡 Fuentes de Datos
+- **Open-Meteo (CAMS)**: Datos de contaminantes atmosféricos del servicio Copernicus/ECMWF
+- **TomTom Traffic API**: Información de tráfico en tiempo real
+- **OpenStreetMap**: Análisis de infraestructura vial
+
+### 🔬 Contaminantes Monitoreados
+- PM2.5 (Partículas finas)
+- PM10 (Partículas gruesas)  
+- NO₂ (Dióxido de nitrógeno)
+- O₃ (Ozono)
+- CO (Monóxido de carbono)
+
+### 📋 Documentación
+Para más información sobre los endpoints, consulta las secciones a continuación.
+
+### ⚠️ Rate Limiting
+- Endpoints generales: 100 req/min
+- Suscripciones: 5 req/min
+- Endpoints costosos: 30 req/min
+    """,
+    version="2.1.0",
+    openapi_tags=tags_metadata,
+    docs_url="/docs",
+    redoc_url="/redoc",
+    contact={
+        "name": "REVIVE - Red de Viveros de Biodiversidad",
+        "url": "https://github.com/KevinMM007/Sistema-de-Monitoreo-Atmosferico"
+    },
+    license_info={
+        "name": "MIT",
+        "url": "https://opensource.org/licenses/MIT"
+    }
 )
 
-# Configurar CORS
+# ============================================================================
+# CONFIGURACIÓN DE CORS
+# ============================================================================
+# En desarrollo: permite todos los orígenes (*)
+# En producción: restringe a dominios específicos por seguridad
+# Configura CORS_ORIGINS en .env: CORS_ORIGINS=https://tu-frontend.vercel.app
+# ============================================================================
+cors_origins_env = os.getenv('CORS_ORIGINS', '*')
+environment = os.getenv('ENVIRONMENT', 'development')
+
+# Parsear orígenes permitidos
+if cors_origins_env == '*':
+    allow_origins = ['*']
+    allow_credentials = False  # No permitir credentials con wildcard
+else:
+    # Separar por comas y limpiar espacios
+    allow_origins = [origin.strip() for origin in cors_origins_env.split(',')]
+    allow_credentials = True  # Permitir credentials con orígenes específicos
+
+print(f"\n🔒 Configuración CORS:")
+print(f"   Entorno: {environment}")
+print(f"   Orígenes permitidos: {allow_origins}")
+print(f"   Credentials: {allow_credentials}\n")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,
+    allow_origins=allow_origins,
+    allow_credentials=allow_credentials,
     allow_methods=["*"],
     allow_headers=["*"]
 )
@@ -82,7 +195,7 @@ async def load_subscriptions():
 # ENDPOINTS DE ESTADO Y DIAGNÓSTICO
 # ============================================================================
 
-@app.get("/api/health")
+@app.get("/api/health", tags=["🏥 Estado del Sistema"], summary="Verificar estado del sistema")
 async def health_check():
     return {
         "status": "ok",
@@ -93,7 +206,21 @@ async def health_check():
         }
     }
 
-@app.get("/api/test-db")
+@app.get("/api/rate-limit-stats", tags=["🏥 Estado del Sistema"], summary="Estadísticas de rate limiting")
+async def get_rate_limit_statistics():
+    """
+    Obtiene estadísticas del sistema de rate limiting.
+    
+    Útil para monitorear el uso de la API.
+    """
+    stats = get_rate_limit_stats()
+    # Limpiar entradas expiradas
+    cleaned = cleanup_expired_entries()
+    stats["entries_cleaned"] = cleaned
+    return stats
+
+
+@app.get("/api/test-db", tags=["🏥 Estado del Sistema"], summary="Probar conexión a base de datos")
 async def test_database(db: Session = Depends(get_db)):
     try:
         test_reading = models.AirQualityReading(
@@ -120,7 +247,7 @@ async def test_database(db: Session = Depends(get_db)):
     except Exception as e:
         return {"error": f"Database test failed: {str(e)}"}
 
-@app.get("/api/diagnostics")
+@app.get("/api/diagnostics", tags=["🔧 Diagnóstico"], summary="Obtener diagnóstico completo del sistema")
 async def get_diagnostics():
     """
     🔍 ENDPOINT DE DIAGNÓSTICO PARA VERIFICACIÓN DE DATOS
@@ -254,7 +381,7 @@ async def verify_current_data():
     except Exception as e:
         return {"error": str(e), "status": "verification_failed"}
 
-@app.get("/api/collector-status")
+@app.get("/api/collector-status", tags=["🔧 Diagnóstico"], summary="Estado del colector de datos")
 async def get_collector_status():
     """Endpoint para obtener el estado del colector de datos"""
     try:
@@ -279,7 +406,7 @@ async def get_collector_status():
 # ENDPOINTS DE CALIDAD DEL AIRE
 # ============================================================================
 
-@app.get("/api/air-quality")
+@app.get("/api/air-quality", tags=["🌬️ Calidad del Aire"], summary="Obtener datos de calidad del aire")
 async def get_air_quality(
     db: Session = Depends(get_db),
     source: Optional[str] = None,
@@ -368,7 +495,7 @@ async def get_latest_readings(db: Session = Depends(get_db)):
             detail={"error": "Error al obtener últimas lecturas"}
         )
 
-@app.get("/api/air-quality/history")
+@app.get("/api/air-quality/history", tags=["🌬️ Calidad del Aire"], summary="Historial de calidad del aire")
 async def get_air_quality_history(
     start_time: datetime,
     end_time: datetime,
@@ -420,7 +547,7 @@ async def get_daily_history(
             detail={"error": "Error al obtener historial diario"}
         )
 
-@app.get("/api/air-quality/by-zone")
+@app.get("/api/air-quality/by-zone", tags=["🗺️ Zonas"], summary="Calidad del aire por zona geográfica")
 async def get_air_quality_by_zone(db: Session = Depends(get_db)):
     """
     Combina OpenMeteo + OSM + TomTom para calcular contaminación por zona.
@@ -456,8 +583,10 @@ async def get_air_quality_by_zone(db: Session = Depends(get_db)):
             base_data = [latest_readings[0].to_dict()]
             data_source_info['openmeteo'] = {'status': 'fallback_db', 'type': 'database'}
         
-        base_reading = base_data[0]
-        print(f"  ✅ Datos base obtenidos:")
+        # IMPORTANTE: Usar el último registro (más reciente) para coincidir con las Estadísticas Actuales
+        # Los datos están ordenados cronológicamente (ascendente), así que [-1] es el más reciente
+        base_reading = base_data[-1]  # Cambiado de base_data[0] a base_data[-1]
+        print(f"  ✅ Datos base obtenidos (registro más reciente):")
         print(f"     PM2.5: {base_reading.get('pm25', 'N/A')} µg/m³")
         print(f"     PM10: {base_reading.get('pm10', 'N/A')} µg/m³")
         print(f"     Fuente: {base_reading.get('source', 'openmeteo')}")
@@ -561,7 +690,7 @@ async def get_air_quality_by_zone(db: Session = Depends(get_db)):
 # ENDPOINTS DE TRÁFICO
 # ============================================================================
 
-@app.get("/api/traffic")
+@app.get("/api/traffic", tags=["🚗 Tráfico"], summary="Datos de tráfico en tiempo real")
 async def get_traffic_data(db: Session = Depends(get_db)):
     """
     Endpoint para obtener datos de tráfico REALES de TomTom
@@ -665,7 +794,7 @@ async def get_zones_osm_analysis():
             detail={"error": "Error al obtener análisis de zonas"}
         )
 
-@app.get("/api/quadrants/{quadrant_name}/stats")
+@app.get("/api/quadrants/{quadrant_name}/stats", tags=["🗺️ Zonas"], summary="Estadísticas por cuadrante")
 async def get_quadrant_stats(quadrant_name: str, db: Session = Depends(get_db)):
     """Endpoint para obtener estadísticas por cuadrante"""
     try:
@@ -675,7 +804,7 @@ async def get_quadrant_stats(quadrant_name: str, db: Session = Depends(get_db)):
         print(f"Error en get_quadrant_stats: {str(e)}")
         raise HTTPException(status_code=500, detail={"error": "Error al obtener estadísticas del cuadrante"})
 
-@app.get("/api/predictions")
+@app.get("/api/predictions", tags=["📊 Predicciones"], summary="Obtener predicciones de calidad del aire")
 async def get_predictions(quadrant_name: Optional[str] = None, db: Session = Depends(get_db)):
     """Endpoint para obtener predicciones de calidad del aire"""
     try:
@@ -685,7 +814,7 @@ async def get_predictions(quadrant_name: Optional[str] = None, db: Session = Dep
         print(f"Error en get_predictions: {str(e)}")
         raise HTTPException(status_code=500, detail={"error": "Error al obtener predicciones"})
 
-@app.get("/api/quadrants/update-stats")
+@app.get("/api/quadrants/update-stats", tags=["🗺️ Zonas"], summary="Actualizar estadísticas de cuadrantes")
 async def update_quadrant_stats(db: Session = Depends(get_db)):
     """Endpoint para actualizar estadísticas de todos los cuadrantes"""
     try:
@@ -703,7 +832,7 @@ async def update_quadrant_stats(db: Session = Depends(get_db)):
 # ENDPOINTS DE ML Y PREDICCIONES
 # ============================================================================
 
-@app.post("/api/ml/train")
+@app.post("/api/ml/train", tags=["📊 Predicciones"], summary="Entrenar modelo de predicción ML")
 async def train_ml_models(db: Session = Depends(get_db)):
     """Entrena los modelos de ML con datos históricos"""
     try:
@@ -750,7 +879,7 @@ async def predict_pollution(hours_ahead: int = 24, db: Session = Depends(get_db)
 # ENDPOINTS DE ALERTAS
 # ============================================================================
 
-@app.get("/api/alerts/current")
+@app.get("/api/alerts/current", tags=["🔔 Alertas"], summary="Obtener alerta actual")
 async def get_current_alerts(db: Session = Depends(get_db)):
     """
     Obtiene alertas actuales basadas en los datos más recientes.
@@ -924,93 +1053,100 @@ async def get_daily_report():
         print(f"Error generando reporte diario: {str(e)}")
         raise HTTPException(status_code=500, detail={"error": "Error al generar reporte diario"})
 
-@app.post("/api/alerts/subscribe")
+@app.post("/api/alerts/subscribe", tags=["🔔 Alertas"], summary="Suscribirse a alertas por email")
 async def subscribe_to_alerts(request: dict, db: Session = Depends(get_db)):
     """Suscribe un email para recibir alertas de calidad del aire"""
     try:
         email = request.get('email')
+        print(f"\n🔔 Solicitud de suscripción recibida para: {email}")
+        
         if not email:
             raise HTTPException(status_code=400, detail="Email es requerido")
 
-        import re
-        if not re.match(r'^[^\s@]+@[^\s@]+\.[^\s@]+$', email):
-            raise HTTPException(status_code=400, detail="Formato de email inválido")
+        # 🆕 MEJORA: Validación de email profesional
+        from custom_email_validator import validate_email
+        validation_result = validate_email(email, strict=True, allow_disposable=False)
+        if not validation_result.is_valid:
+            error_detail = {
+                "error": validation_result.error_code,
+                "message": validation_result.error_message
+            }
+            if validation_result.suggestions:
+                error_detail["suggestions"] = validation_result.suggestions
+            raise HTTPException(status_code=400, detail=error_detail)
+        
+        # Usar email normalizado
+        email = validation_result.normalized_email
 
+        # Verificar si ya existe la suscripción
         existing = db.query(models.AlertSubscription).filter(
             models.AlertSubscription.email == email
         ).first()
 
         if existing:
             if not existing.is_active:
+                print(f"  ↻ Reactivando suscripción existente...")
                 existing.is_active = True
                 existing.updated_at = datetime.utcnow()
                 db.commit()
                 alert_system.subscribe_email(email)
 
+                # Enviar correo de bienvenida
+                print(f"  📧 Intentando enviar correo de bienvenida...")
                 try:
                     from email_service import EmailService
                     email_service = EmailService()
+                    print(f"     Servicio configurado: {email_service.configured}")
                     if email_service.configured:
-                        email_service.send_welcome_email(email)
+                        result = email_service.send_welcome_email(email)
+                        print(f"     Resultado del envío: {result}")
+                    else:
+                        print(f"     ⚠️ Servicio de email NO configurado")
                 except Exception as e:
-                    print(f"Error enviando correo de bienvenida: {str(e)}")
+                    print(f"     ❌ Error enviando correo: {str(e)}")
+                    import traceback
+                    traceback.print_exc()
 
                 return {"message": "Suscripción reactivada exitosamente", "email": email}
             else:
+                print(f"  ℹ️ Email ya está suscrito")
                 return {"message": "El email ya está suscrito", "email": email}
 
+        # Nueva suscripción
+        print(f"  ➕ Creando nueva suscripción...")
         new_subscription = models.AlertSubscription(email=email, is_active=True)
         db.add(new_subscription)
         db.commit()
         alert_system.subscribe_email(email)
 
+        # Enviar correo de bienvenida
+        print(f"  📧 Intentando enviar correo de bienvenida...")
         try:
             from email_service import EmailService
             email_service = EmailService()
+            print(f"     Servicio configurado: {email_service.configured}")
             if email_service.configured:
-                email_service.send_welcome_email(email)
+                result = email_service.send_welcome_email(email)
+                print(f"     Resultado del envío: {result}")
+            else:
+                print(f"     ⚠️ Servicio de email NO configurado")
         except Exception as e:
-            print(f"Error enviando correo de bienvenida: {str(e)}")
+            print(f"     ❌ Error enviando correo: {str(e)}")
+            import traceback
+            traceback.print_exc()
 
+        print(f"  ✅ Suscripción completada")
         return {"message": "Suscripción exitosa. Recibirás un correo de confirmación.", "email": email}
+    except HTTPException:
+        raise
     except Exception as e:
-        print(f"Error en suscripción: {str(e)}")
+        print(f"❌ Error en suscripción: {str(e)}")
+        import traceback
+        traceback.print_exc()
         db.rollback()
         raise HTTPException(status_code=500, detail={"error": "Error al suscribir email"})
 
-@app.post("/api/alerts/unsubscribe")
-async def unsubscribe_from_alerts(request: dict, db: Session = Depends(get_db)):
-    """Desuscribe un email de las alertas de calidad del aire"""
-    try:
-        email = request.get('email')
-        if not email:
-            raise HTTPException(status_code=400, detail="Email es requerido")
-        
-        print(f"\n🔔 Solicitud de desuscripción (POST) recibida para: {email}")
-        
-        subscription = db.query(models.AlertSubscription).filter(
-            models.AlertSubscription.email == email
-        ).first()
-        
-        if subscription:
-            print(f"  ✅ Suscripción encontrada - Estado actual: {'Activo' if subscription.is_active else 'Inactivo'}")
-            subscription.is_active = False
-            subscription.updated_at = datetime.utcnow()
-            db.commit()
-            alert_system.unsubscribe_email(email)
-            print(f"  ✅ Desuscripción exitosa")
-            return {"message": "Desuscripción exitosa", "email": email, "was_subscribed": True}
-        else:
-            print(f"  ⚠️ Suscripción no encontrada")
-            alert_system.unsubscribe_email(email)
-            return {"message": "Desuscripción procesada", "email": email, "was_subscribed": False}
-            
-    except Exception as e:
-        print(f"❌ Error en desuscripción: {str(e)}")
-        db.rollback()
-        raise HTTPException(status_code=500, detail={"error": "Error al desuscribir email"})
-
-@app.post("/api/alerts/test-email")
+@app.post("/api/alerts/test-email", tags=["🔔 Alertas"], summary="Enviar email de prueba")
 async def test_email_notification(request: dict):
     """Envía un correo de prueba para verificar configuración"""
     try:
@@ -1055,7 +1191,7 @@ async def get_all_subscriptions(db: Session = Depends(get_db)):
         print(f"Error obteniendo suscripciones: {str(e)}")
         raise HTTPException(status_code=500, detail={"error": "Error al obtener suscripciones"})
 
-@app.get("/api/alerts/subscription/{email}")
+@app.get("/api/alerts/subscription/{email}", tags=["🔔 Alertas"], summary="Verificar estado de suscripción")
 async def get_subscription_status(email: str, db: Session = Depends(get_db)):
     """Obtiene el estado de una suscripción específica"""
     try:
@@ -1081,7 +1217,7 @@ async def get_subscription_status(email: str, db: Session = Depends(get_db)):
         print(f"Error obteniendo suscripción: {str(e)}")
         raise HTTPException(status_code=500, detail={"error": "Error al obtener suscripción"})
 
-@app.delete("/api/alerts/unsubscribe/{email}")
+@app.delete("/api/alerts/unsubscribe/{email}", tags=["🔔 Alertas"], summary="Desuscribirse de alertas")
 async def unsubscribe_email(email: str, db: Session = Depends(get_db)):
     """Desuscribe un email de las alertas (método DELETE)"""
     try:
@@ -1126,7 +1262,7 @@ async def unsubscribe_email(email: str, db: Session = Depends(get_db)):
 # ENDPOINTS DE TENDENCIAS Y COMPARACIONES
 # ============================================================================
 
-@app.get("/api/trends/expected")
+@app.get("/api/trends/expected", tags=["📊 Predicciones"], summary="Tendencias esperadas")
 async def get_expected_trends(db: Session = Depends(get_db)):
     """
     Obtiene tendencias esperadas para HOY y MAÑANA basadas en patrones históricos.

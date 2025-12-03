@@ -142,8 +142,22 @@ const EmailNotifications = ({
     subscriptionMessage,
     onSubscribe,
     onUnsubscribe,
-}) => (
-    <div className="p-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200">
+}) => {
+    // Handler para suscribir pasando el email directamente
+    const handleSubscribe = () => {
+        console.log('📧 Click en Suscribir, email actual:', email);
+        onSubscribe(email); // Pasar el email directamente
+    };
+    
+    // Handler para desuscribir pasando el email directamente
+    // IMPORTANTE: Sin esto, se pasaría el evento del click en lugar del email
+    const handleUnsubscribe = () => {
+        console.log('📧 Click en Desuscribir, email actual:', email);
+        onUnsubscribe(email); // Pasar el email directamente
+    };
+    
+    return (
+        <div className="p-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200">
         <div className="flex items-center gap-3 mb-4">
             <span className="text-3xl">📧</span>
             <h3 className="text-xl font-semibold text-gray-800">
@@ -178,7 +192,7 @@ const EmailNotifications = ({
                 <Button
                     variant="primary"
                     icon="🔔"
-                    onClick={onSubscribe}
+                    onClick={handleSubscribe}
                     disabled={subscriptionLoading || !email}
                     loading={subscriptionLoading}
                     className="whitespace-nowrap"
@@ -189,7 +203,7 @@ const EmailNotifications = ({
                 <Button
                     variant="danger"
                     icon="🔕"
-                    onClick={onUnsubscribe}
+                    onClick={handleUnsubscribe}
                     disabled={subscriptionLoading}
                     loading={subscriptionLoading}
                     className="whitespace-nowrap"
@@ -225,7 +239,8 @@ const EmailNotifications = ({
             </div>
         )}
     </div>
-);
+    );
+};
 
 /**
  * Notificaciones Push del navegador

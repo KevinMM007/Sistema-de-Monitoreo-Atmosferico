@@ -10,6 +10,9 @@ function App() {
   const [weatherData, setWeatherData] = useState(null);
   const [zoneData, setZoneData] = useState(null);
   
+  // 🆕 MEJORA: Estado para controlar generación del reporte
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+  
   // Rastrear qué vistas han sido visitadas (para lazy mounting)
   const [visitedViews, setVisitedViews] = useState({ dashboard: true });
 
@@ -75,7 +78,8 @@ function App() {
     }, 500);
   }, []);
 
-  const handleGenerateReport = () => {
+  // 🆕 MEJORA: Handler mejorado con estado de loading
+  const handleGenerateReport = async () => {
     if (!airQualityData || !weatherData) {
       alert('No hay datos disponibles para generar el reporte');
       return;
@@ -86,8 +90,27 @@ function App() {
       return;
     }
     
-    console.log('Generando reporte con zoneData:', zoneData);
-    generateReport(airQualityData, weatherData, zoneData);
+    // Activar estado de generación
+    setIsGeneratingReport(true);
+    
+    try {
+      console.log('Generando reporte con zoneData:', zoneData);
+      
+      // Pequeño delay para mostrar el estado de loading
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      const success = generateReport(airQualityData, weatherData, zoneData);
+      
+      if (success) {
+        // Mantener el estado de loading un poco más mientras se descarga
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+    } catch (error) {
+      console.error('Error generando reporte:', error);
+      alert('❌ Error al generar el reporte. Por favor intenta de nuevo.');
+    } finally {
+      setIsGeneratingReport(false);
+    }
   };
 
   // Estilos para vistas ocultas - NO usar display:none ni height:0
@@ -107,6 +130,9 @@ function App() {
       transform: isActive ? 'none' : 'translateX(-100vw)',
     };
   };
+
+  // 🆕 MEJORA: Determinar si el botón está deshabilitado
+  const isReportButtonDisabled = !zoneData || !zoneData.zones || isGeneratingReport;
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -176,21 +202,43 @@ function App() {
                 Datos Históricos
               </button>
               
-              {/* Download Report Button */}
+              {/* 🆕 MEJORA: Botón de Descarga con estado "Generando..." */}
               <button
                 onClick={handleGenerateReport}
-                disabled={!zoneData || !zoneData.zones}
+                disabled={isReportButtonDisabled}
                 className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium shadow-md transition-all duration-200 transform ${
-                  (!zoneData || !zoneData.zones)
+                  isGeneratingReport
+                    ? 'bg-yellow-500 cursor-wait'
+                    : isReportButtonDisabled
                     ? 'bg-gray-400 cursor-not-allowed'
                     : 'bg-green-600 hover:bg-green-700 hover:shadow-lg hover:scale-105'
                 } text-white`}
-                title={(!zoneData || !zoneData.zones) ? 'Esperando datos de zona...' : 'Descargar reporte PDF'}
+                title={
+                  isGeneratingReport 
+                    ? 'Generando reporte PDF...' 
+                    : isReportButtonDisabled 
+                    ? 'Esperando datos de zona...' 
+                    : 'Descargar reporte PDF'
+                }
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
-                </svg>
-                DESCARGAR REPORTE
+                {isGeneratingReport ? (
+                  // Icono de carga animado
+                  <>
+                    <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span>GENERANDO...</span>
+                  </>
+                ) : (
+                  // Icono normal de descarga
+                  <>
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
+                    </svg>
+                    <span>DESCARGAR REPORTE</span>
+                  </>
+                )}
               </button>
             </div>
           </div>
