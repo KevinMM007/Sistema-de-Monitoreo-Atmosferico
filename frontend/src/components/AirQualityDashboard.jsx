@@ -1,10 +1,10 @@
 /**
  * AirQualityDashboard - Dashboard principal de calidad del aire
- * Fase 4 - Refactorizado: Usando hooks y componentes centralizados
  * 
- * 🆕 MEJORAS:
- * - Eliminada leyenda redundante en "Estadísticas Actuales"
- * - Agregado icono de información en el mapa
+ * 🆕 MEJORAS IMPLEMENTADAS:
+ * - Responsive design completo (móviles, tablets, desktop)
+ * - Accesibilidad mejorada (aria-labels, roles)
+ * - Altura del mapa adaptativa
  */
 
 import React, { useState, useMemo, useCallback } from 'react';
@@ -52,21 +52,24 @@ const MapInfoButton = () => {
             {/* Botón de información */}
             <button
                 onClick={() => setIsOpen(!isOpen)}
+                aria-expanded={isOpen}
+                aria-label="Información sobre los datos del mapa"
                 className={`
                     w-8 h-8 rounded-full flex items-center justify-center
                     transition-all duration-200 shadow-md
+                    focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
                     ${isOpen 
                         ? 'bg-blue-600 text-white' 
                         : 'bg-white text-gray-600 hover:bg-blue-50 hover:text-blue-600'
                     }
                 `}
-                title="Información sobre los datos"
             >
                 <svg 
                     className="w-5 h-5" 
                     fill="none" 
                     viewBox="0 0 24 24" 
                     stroke="currentColor"
+                    aria-hidden="true"
                 >
                     <path 
                         strokeLinecap="round" 
@@ -84,44 +87,52 @@ const MapInfoButton = () => {
                     <div 
                         className="fixed inset-0 z-[999]"
                         onClick={() => setIsOpen(false)}
+                        aria-hidden="true"
                     />
                     
-                    {/* Tarjeta */}
-                    <div className="absolute bottom-10 right-0 z-[1000] w-72 animate-fade-in">
-                        <div className="bg-white rounded-lg shadow-xl border border-gray-200 p-4">
+                    {/* Tarjeta - responsive width */}
+                    <div className="absolute bottom-10 right-0 z-[1000] w-64 sm:w-72 animate-fade-in">
+                        <div 
+                            className="bg-white rounded-lg shadow-xl border border-gray-200 p-3 sm:p-4"
+                            role="dialog"
+                            aria-label="Información del mapa"
+                        >
                             {/* Header */}
-                            <div className="flex items-center justify-between mb-3">
-                                <h4 className="font-semibold text-gray-800 flex items-center gap-2">
-                                    <span className="text-blue-500">ℹ️</span>
+                            <div className="flex items-center justify-between mb-2 sm:mb-3">
+                                <h4 className="font-semibold text-gray-800 flex items-center gap-2 text-sm sm:text-base">
+                                    <span className="text-blue-500" aria-hidden="true">ℹ️</span>
                                     Información del Mapa
                                 </h4>
                                 <button
                                     onClick={() => setIsOpen(false)}
-                                    className="text-gray-400 hover:text-gray-600 transition-colors"
+                                    className="text-gray-400 hover:text-gray-600 transition-colors p-1
+                                               focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
+                                    aria-label="Cerrar información"
                                 >
-                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                                     </svg>
                                 </button>
                             </div>
                             
                             {/* Contenido */}
-                            <div className="text-sm text-gray-600 space-y-2">
+                            <div className="text-xs sm:text-sm text-gray-600 space-y-2">
                                 <p>
-                                    Los valores por zona en el mapa incluyen ajustes basados en:
+                                    Los valores por zona incluyen ajustes basados en:
                                 </p>
-                                <ul className="space-y-1 ml-4">
+                                <ul className="space-y-1 ml-2 sm:ml-4">
                                     <li className="flex items-start gap-2">
-                                        <span className="text-blue-500">🟢</span>
+                                        <span className="text-blue-500" aria-hidden="true">🟢</span>
                                         <span><strong>Tráfico en tiempo real</strong></span>
                                     </li>
                                     <li className="flex items-start gap-2">
-                                        <span className="text-orange-500">🟢</span>
+                                        <span className="text-orange-500" aria-hidden="true">🟢</span>
                                         <span><strong>Infraestructura vial</strong></span>
                                     </li>
                                 </ul>
                                 <p className="text-xs text-gray-500 pt-2 border-t border-gray-100">
-                                    Pasa el cursor sobre cada zona para ver los detalles.
+                                    <span className="hidden sm:inline">Pasa el cursor sobre cada zona para ver los detalles.</span>
+                                    <span className="sm:hidden">Toca cada zona para ver detalles.</span>
                                 </p>
                             </div>
                         </div>
@@ -176,35 +187,45 @@ const AirQualityDashboard = ({ isVisible = true }) => {
     // Renderizar loading
     if (isLoading) {
         return (
-            <div className="p-4 w-full flex items-center justify-center min-h-[400px]">
+            <div 
+                className="p-2 sm:p-4 w-full flex items-center justify-center min-h-[300px] sm:min-h-[400px]"
+                role="status"
+                aria-label="Cargando datos"
+            >
                 <LoadingSpinner size="xl" text="Cargando datos de calidad del aire..." />
             </div>
         );
     }
 
     return (
-        <div className="p-4 w-full animate-fade-in">
+        <div className="p-2 sm:p-4 w-full animate-fade-in">
             {/* Indicador de estado de datos - COMPACTO */}
             <DataStatus
                 status={dataSource}
                 lastUpdate={lastUpdate}
                 errorMessage={airError}
-                className="mb-3"
+                className="mb-2 sm:mb-3"
             />
 
-            {/* Grid principal: Mapa + Contaminantes */}
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 w-full">
+            {/* Grid principal: Mapa + Contaminantes - RESPONSIVE */}
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-3 sm:gap-4 w-full">
                 
                 {/* Panel del Mapa */}
                 <Card 
                     title="Mapa de Calidad del Aire"
                     actions={
-                        <span className="text-sm text-gray-500">Xalapa, Veracruz</span>
+                        <span className="text-xs sm:text-sm text-gray-500">Xalapa, Veracruz</span>
                     }
-                    padding="md"
+                    padding="sm"
+                    className="order-1"
                 >
                     <div className="relative">
-                        <div style={{ height: '600px', borderRadius: '0.5rem' }}>
+                        {/* Altura del mapa responsive */}
+                        <div 
+                            className="h-[350px] sm:h-[450px] md:h-[500px] lg:h-[550px] xl:h-[600px] rounded-lg overflow-hidden"
+                            role="application"
+                            aria-label="Mapa interactivo de calidad del aire de Xalapa"
+                        >
                             <MapContainer
                                 center={MAP_CONFIG.center}
                                 zoom={MAP_CONFIG.zoom}
@@ -235,56 +256,70 @@ const AirQualityDashboard = ({ isVisible = true }) => {
                         </div>
 
                         {/* Botón para mostrar/ocultar zonas */}
-                        <div className="absolute top-4 right-4 z-[1000]">
+                        <div className="absolute top-2 sm:top-4 right-2 sm:right-4 z-[1000]">
                             <Button
                                 variant="outlineGray"
                                 size="sm"
                                 onClick={toggleZones}
-                                className="bg-white shadow"
+                                className="bg-white shadow text-xs sm:text-sm px-2 sm:px-3"
+                                aria-pressed={showZones}
                             >
-                                {showZones ? 'Ocultar Cuadrantes' : 'Ver Cuadrantes'}
+                                <span className="hidden sm:inline">
+                                    {showZones ? 'Ocultar Cuadrantes' : 'Ver Cuadrantes'}
+                                </span>
+                                <span className="sm:hidden">
+                                    {showZones ? 'Ocultar' : 'Ver'}
+                                </span>
                             </Button>
                         </div>
 
                         {/* Leyenda del mapa - esquina inferior izquierda */}
-                        <div className="absolute bottom-4 left-4 z-[1000]">
+                        <div className="absolute bottom-2 sm:bottom-4 left-2 sm:left-4 z-[1000]">
                             <MapLegend />
                         </div>
 
-                        {/* 🆕 Botón de información - esquina inferior derecha */}
-                        <div className="absolute bottom-4 right-4 z-[1000]">
+                        {/* Botón de información - esquina inferior derecha */}
+                        <div className="absolute bottom-2 sm:bottom-4 right-2 sm:right-4 z-[1000]">
                             <MapInfoButton />
                         </div>
                     </div>
                 </Card>
 
                 {/* Panel de Niveles de Contaminantes */}
-                <Card title="Niveles de Contaminantes" icon="📊" padding="md">
+                <Card 
+                    title="Niveles de Contaminantes" 
+                    icon="📊" 
+                    padding="sm"
+                    className="order-2"
+                >
                     {airError ? (
                         <ErrorState
                             title="Error al cargar datos"
                             description={airError}
                         />
                     ) : !airQualityData ? (
-                        <div className="flex items-center justify-center h-64">
+                        <div className="flex items-center justify-center h-48 sm:h-64" role="status">
                             <LoadingSpinner text="Cargando datos..." />
                         </div>
                     ) : (
-                        <div className="space-y-6">
+                        <div className="space-y-4 sm:space-y-6">
                             {/* Gráfica de tendencias */}
                             <div>
-                                <h3 className="text-lg font-semibold text-gray-700 mb-3">
+                                <h3 className="text-base sm:text-lg font-semibold text-gray-700 mb-2 sm:mb-3">
                                     Tendencia (últimas 12 horas)
                                 </h3>
-                                <PollutantChart 
-                                    data={airQualityData} 
-                                    height={350}
-                                />
+                                {/* Altura de gráfica responsive */}
+                                <div className="h-[250px] sm:h-[300px] md:h-[350px]">
+                                    <PollutantChart 
+                                        data={airQualityData} 
+                                        height="100%"
+                                    />
+                                </div>
                             </div>
 
-                            {/* Estadísticas actuales - SIN LEYENDA */}
+                            {/* Estadísticas actuales */}
                             <div>
-                                <h3 className="text-lg font-semibold text-gray-700 mb-3">
+                                <h3 className="text-base sm:text-lg font-semibold text-gray-700 mb-2 sm:mb-3">
                                     Estadísticas Actuales
                                 </h3>
                                 <PollutantStats data={airQualityData} />
@@ -295,7 +330,7 @@ const AirQualityDashboard = ({ isVisible = true }) => {
             </div>
 
             {/* Condiciones Meteorológicas */}
-            <div className="mt-4">
+            <div className="mt-3 sm:mt-4">
                 <WeatherCard 
                     weatherData={weatherData} 
                     loading={weatherLoading}

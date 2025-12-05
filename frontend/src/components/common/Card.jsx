@@ -1,6 +1,9 @@
 /**
  * Componente Card - Contenedor de tarjeta reutilizable
- * Fase 4 - Optimización: Componentes UI comunes
+ * 
+ * 🆕 MEJORAS:
+ * - Responsive padding y tipografía
+ * - Accesibilidad mejorada
  */
 
 import React from 'react';
@@ -31,11 +34,12 @@ const Card = ({
     animate = true,
     variant = 'default',
 }) => {
+    // Padding responsive
     const paddingClasses = {
         none: 'p-0',
-        sm: 'p-3',
-        md: 'p-4',
-        lg: 'p-6',
+        sm: 'p-2 sm:p-3',
+        md: 'p-3 sm:p-4',
+        lg: 'p-4 sm:p-6',
     };
 
     const variantClasses = {
@@ -58,22 +62,24 @@ const Card = ({
                 ${animateClass}
                 ${className}
             `}
+            role={hover ? 'button' : undefined}
+            tabIndex={hover ? 0 : undefined}
         >
             {(title || actions) && (
-                <div className="flex items-center justify-between mb-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3 sm:mb-4">
                     <div className="flex items-center gap-2">
-                        {icon && <span className="text-xl">{icon}</span>}
+                        {icon && <span className="text-lg sm:text-xl" aria-hidden="true">{icon}</span>}
                         <div>
                             {title && (
-                                <h2 className="text-xl font-bold text-gray-800">{title}</h2>
+                                <h2 className="text-lg sm:text-xl font-bold text-gray-800">{title}</h2>
                             )}
                             {subtitle && (
-                                <p className="text-sm text-gray-500">{subtitle}</p>
+                                <p className="text-xs sm:text-sm text-gray-500">{subtitle}</p>
                             )}
                         </div>
                     </div>
                     {actions && (
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-shrink-0">
                             {actions}
                         </div>
                     )}
@@ -106,13 +112,13 @@ export const ColoredCard = ({
 
     return (
         <div className={`bg-white rounded-xl shadow-lg overflow-hidden ${className}`}>
-            <div className={`bg-gradient-to-r ${colorClasses[color]} px-4 py-3`}>
-                <h3 className="font-bold text-white flex items-center gap-2">
-                    {icon && <span>{icon}</span>}
+            <div className={`bg-gradient-to-r ${colorClasses[color]} px-3 sm:px-4 py-2 sm:py-3`}>
+                <h3 className="font-bold text-white flex items-center gap-2 text-sm sm:text-base">
+                    {icon && <span aria-hidden="true">{icon}</span>}
                     {title}
                 </h3>
             </div>
-            <div className="p-4">
+            <div className="p-3 sm:p-4">
                 {children}
             </div>
         </div>
@@ -145,19 +151,25 @@ export const InfoCard = ({
         neutral: '📋',
     };
 
+    // Roles ARIA para tipos de alerta
+    const ariaRole = type === 'error' || type === 'warning' ? 'alert' : 'status';
+
     return (
-        <div className={`
-            rounded-lg border p-4
-            ${typeClasses[type]}
-            ${className}
-        `}>
+        <div 
+            className={`
+                rounded-lg border p-3 sm:p-4
+                ${typeClasses[type]}
+                ${className}
+            `}
+            role={ariaRole}
+        >
             {title && (
-                <h4 className="font-semibold flex items-center gap-2 mb-2">
-                    <span>{icon || defaultIcons[type]}</span>
+                <h4 className="font-semibold flex items-center gap-2 mb-1 sm:mb-2 text-sm sm:text-base">
+                    <span aria-hidden="true">{icon || defaultIcons[type]}</span>
                     {title}
                 </h4>
             )}
-            <div className="text-sm">
+            <div className="text-xs sm:text-sm">
                 {children}
             </div>
         </div>
@@ -173,15 +185,29 @@ export const InteractiveCard = ({
     selected = false,
     disabled = false,
     className = '',
+    ariaLabel = '',
 }) => {
+    const handleKeyDown = (e) => {
+        if ((e.key === 'Enter' || e.key === ' ') && !disabled) {
+            e.preventDefault();
+            onClick?.();
+        }
+    };
+
     return (
         <div
             onClick={disabled ? undefined : onClick}
+            onKeyDown={handleKeyDown}
+            role="button"
+            tabIndex={disabled ? -1 : 0}
+            aria-pressed={selected}
+            aria-disabled={disabled}
+            aria-label={ariaLabel}
             className={`
-                rounded-lg p-4 transition-all duration-200
+                rounded-lg p-3 sm:p-4 transition-all duration-200
                 ${disabled 
                     ? 'bg-gray-100 cursor-not-allowed opacity-60' 
-                    : 'bg-white cursor-pointer hover:shadow-lg hover:scale-[1.02]'
+                    : 'bg-white cursor-pointer hover:shadow-lg hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-blue-500'
                 }
                 ${selected 
                     ? 'ring-2 ring-blue-500 shadow-lg' 

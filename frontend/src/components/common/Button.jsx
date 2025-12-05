@@ -1,6 +1,10 @@
 /**
  * Componente Button - Botones reutilizables
- * Fase 4 - Optimización: Componentes UI comunes
+ * 
+ * 🆕 MEJORAS:
+ * - Accesibilidad mejorada (aria-labels, aria-busy, aria-disabled)
+ * - Responsive padding y tipografía
+ * - Focus states visibles
  */
 
 import React from 'react';
@@ -19,6 +23,7 @@ import React from 'react';
  * @param {string} props.className - Clases adicionales
  * @param {Function} props.onClick - Handler de click
  * @param {string} props.type - Tipo de botón: 'button', 'submit', 'reset'
+ * @param {string} props.ariaLabel - Etiqueta accesible
  */
 const Button = ({
     children,
@@ -32,55 +37,57 @@ const Button = ({
     className = '',
     onClick,
     type = 'button',
+    ariaLabel,
     ...props
 }) => {
+    // Tamaños responsive
     const sizeClasses = {
-        sm: 'px-3 py-1.5 text-sm',
-        md: 'px-4 py-2 text-sm',
-        lg: 'px-6 py-3 text-base',
+        sm: 'px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm',
+        md: 'px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm',
+        lg: 'px-4 sm:px-6 py-2 sm:py-3 text-sm sm:text-base',
     };
 
     const variantClasses = {
         primary: `
             bg-blue-600 text-white 
             hover:bg-blue-700 
-            focus:ring-blue-500
+            focus-visible:ring-blue-500
             shadow-md hover:shadow-lg
         `,
         secondary: `
             bg-gray-600 text-white 
             hover:bg-gray-700 
-            focus:ring-gray-500
+            focus-visible:ring-gray-500
         `,
         success: `
             bg-green-600 text-white 
             hover:bg-green-700 
-            focus:ring-green-500
+            focus-visible:ring-green-500
         `,
         danger: `
             bg-red-600 text-white 
             hover:bg-red-700 
-            focus:ring-red-500
+            focus-visible:ring-red-500
         `,
         warning: `
             bg-yellow-500 text-black 
             hover:bg-yellow-600 
-            focus:ring-yellow-500
+            focus-visible:ring-yellow-500
         `,
         outline: `
             bg-transparent border-2 border-blue-600 text-blue-600 
             hover:bg-blue-50 
-            focus:ring-blue-500
+            focus-visible:ring-blue-500
         `,
         outlineGray: `
             bg-transparent border border-gray-300 text-gray-700 
             hover:bg-gray-50 
-            focus:ring-gray-500
+            focus-visible:ring-gray-500
         `,
         ghost: `
             bg-transparent text-gray-700 
             hover:bg-gray-100 
-            focus:ring-gray-500
+            focus-visible:ring-gray-500
         `,
         link: `
             bg-transparent text-blue-600 
@@ -96,11 +103,14 @@ const Button = ({
             type={type}
             onClick={onClick}
             disabled={isDisabled}
+            aria-disabled={isDisabled}
+            aria-busy={loading}
+            aria-label={ariaLabel}
             className={`
-                inline-flex items-center justify-center gap-2
+                inline-flex items-center justify-center gap-1.5 sm:gap-2
                 font-medium rounded-lg
                 transition-all duration-200
-                focus:outline-none focus:ring-2 focus:ring-offset-2
+                focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2
                 ${sizeClasses[size]}
                 ${variantClasses[variant]}
                 ${fullWidth ? 'w-full' : ''}
@@ -111,14 +121,18 @@ const Button = ({
         >
             {loading ? (
                 <>
-                    <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                    <span>Cargando...</span>
+                    <span 
+                        className="w-3 h-3 sm:w-4 sm:h-4 border-2 border-current border-t-transparent rounded-full animate-spin"
+                        aria-hidden="true"
+                    />
+                    <span className="sr-only">Cargando</span>
+                    <span aria-hidden="true">Cargando...</span>
                 </>
             ) : (
                 <>
-                    {icon && <span>{icon}</span>}
+                    {icon && <span aria-hidden="true">{icon}</span>}
                     {children}
-                    {iconRight && <span>{iconRight}</span>}
+                    {iconRight && <span aria-hidden="true">{iconRight}</span>}
                 </>
             )}
         </button>
@@ -137,19 +151,20 @@ export const IconButton = ({
     className = '',
     onClick,
     title = '',
+    ariaLabel,
     ...props
 }) => {
     const sizeClasses = {
-        sm: 'w-8 h-8 text-sm',
-        md: 'w-10 h-10 text-base',
-        lg: 'w-12 h-12 text-lg',
+        sm: 'w-7 h-7 sm:w-8 sm:h-8 text-xs sm:text-sm',
+        md: 'w-8 h-8 sm:w-10 sm:h-10 text-sm sm:text-base',
+        lg: 'w-10 h-10 sm:w-12 sm:h-12 text-base sm:text-lg',
     };
 
     const variantClasses = {
-        primary: 'bg-blue-600 text-white hover:bg-blue-700',
-        secondary: 'bg-gray-600 text-white hover:bg-gray-700',
-        ghost: 'bg-transparent text-gray-600 hover:bg-gray-100',
-        outline: 'bg-transparent border border-gray-300 text-gray-600 hover:bg-gray-50',
+        primary: 'bg-blue-600 text-white hover:bg-blue-700 focus-visible:ring-blue-500',
+        secondary: 'bg-gray-600 text-white hover:bg-gray-700 focus-visible:ring-gray-500',
+        ghost: 'bg-transparent text-gray-600 hover:bg-gray-100 focus-visible:ring-gray-500',
+        outline: 'bg-transparent border border-gray-300 text-gray-600 hover:bg-gray-50 focus-visible:ring-gray-500',
     };
 
     const isDisabled = disabled || loading;
@@ -160,11 +175,14 @@ export const IconButton = ({
             onClick={onClick}
             disabled={isDisabled}
             title={title}
+            aria-label={ariaLabel || title}
+            aria-disabled={isDisabled}
+            aria-busy={loading}
             className={`
                 inline-flex items-center justify-center
                 rounded-lg
                 transition-all duration-200
-                focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500
+                focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2
                 ${sizeClasses[size]}
                 ${variantClasses[variant]}
                 ${isDisabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
@@ -173,9 +191,12 @@ export const IconButton = ({
             {...props}
         >
             {loading ? (
-                <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                <span 
+                    className="w-3 h-3 sm:w-4 sm:h-4 border-2 border-current border-t-transparent rounded-full animate-spin"
+                    aria-hidden="true"
+                />
             ) : (
-                icon
+                <span aria-hidden="true">{icon}</span>
             )}
         </button>
     );
@@ -187,9 +208,14 @@ export const IconButton = ({
 export const ButtonGroup = ({
     children,
     className = '',
+    ariaLabel = 'Grupo de opciones',
 }) => {
     return (
-        <div className={`inline-flex rounded-lg overflow-hidden ${className}`}>
+        <div 
+            className={`inline-flex rounded-lg overflow-hidden ${className}`}
+            role="group"
+            aria-label={ariaLabel}
+        >
             {React.Children.map(children, (child, index) => {
                 if (!React.isValidElement(child)) return child;
                 
@@ -217,15 +243,20 @@ export const ToggleButton = ({
     labelOff = 'Desactivado',
     disabled = false,
     className = '',
+    ariaLabel,
 }) => {
     return (
         <button
             type="button"
             onClick={() => !disabled && onToggle(!isOn)}
             disabled={disabled}
+            role="switch"
+            aria-checked={isOn}
+            aria-label={ariaLabel || (isOn ? labelOn : labelOff)}
             className={`
-                inline-flex items-center gap-2 px-4 py-2 rounded-lg
-                font-medium transition-all duration-200
+                inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg
+                font-medium text-xs sm:text-sm transition-all duration-200
+                focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500
                 ${isOn 
                     ? 'bg-green-100 text-green-800 hover:bg-green-200' 
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -234,10 +265,13 @@ export const ToggleButton = ({
                 ${className}
             `}
         >
-            <span className={`
-                w-3 h-3 rounded-full transition-colors
-                ${isOn ? 'bg-green-500' : 'bg-gray-400'}
-            `} />
+            <span 
+                className={`
+                    w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full transition-colors
+                    ${isOn ? 'bg-green-500' : 'bg-gray-400'}
+                `}
+                aria-hidden="true"
+            />
             {isOn ? labelOn : labelOff}
         </button>
     );
@@ -251,33 +285,35 @@ export const FloatingActionButton = ({
     onClick,
     position = 'bottom-right',
     className = '',
+    ariaLabel = 'Acción flotante',
 }) => {
     const positionClasses = {
-        'bottom-right': 'bottom-6 right-6',
-        'bottom-left': 'bottom-6 left-6',
-        'top-right': 'top-6 right-6',
-        'top-left': 'top-6 left-6',
+        'bottom-right': 'bottom-4 right-4 sm:bottom-6 sm:right-6',
+        'bottom-left': 'bottom-4 left-4 sm:bottom-6 sm:left-6',
+        'top-right': 'top-4 right-4 sm:top-6 sm:right-6',
+        'top-left': 'top-4 left-4 sm:top-6 sm:left-6',
     };
 
     return (
         <button
             type="button"
             onClick={onClick}
+            aria-label={ariaLabel}
             className={`
                 fixed ${positionClasses[position]}
-                w-14 h-14
+                w-12 h-12 sm:w-14 sm:h-14
                 bg-blue-600 text-white
                 rounded-full shadow-lg
                 flex items-center justify-center
                 hover:bg-blue-700 hover:shadow-xl
-                focus:outline-none focus:ring-4 focus:ring-blue-300
+                focus:outline-none focus-visible:ring-4 focus-visible:ring-blue-300
                 transition-all duration-200
                 transform hover:scale-110
                 z-50
                 ${className}
             `}
         >
-            <span className="text-2xl">{icon}</span>
+            <span className="text-xl sm:text-2xl" aria-hidden="true">{icon}</span>
         </button>
     );
 };

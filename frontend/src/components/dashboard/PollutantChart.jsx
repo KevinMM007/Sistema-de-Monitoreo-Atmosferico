@@ -1,6 +1,8 @@
 /**
  * Componente PollutantChart - Gráfica de contaminantes
  * Fase 4 - Refactorización del Dashboard
+ * 
+ * CORREGIDO: Manejo de height para evitar error de width/height 0
  */
 
 import React, { useMemo } from 'react';
@@ -101,9 +103,21 @@ const PollutantChart = ({
         return [0, Math.ceil(maxValue * 1.1)];
     }, [chartData, pollutantsToShow]);
 
+    // Calcular altura numérica
+    const numericHeight = useMemo(() => {
+        if (typeof height === 'number') return height;
+        if (height === '100%') return '100%';
+        // Intentar parsear si es string con número
+        const parsed = parseInt(height, 10);
+        return isNaN(parsed) ? 350 : parsed;
+    }, [height]);
+
     if (!data || data.length === 0) {
         return (
-            <div className={`flex items-center justify-center bg-gray-50 rounded-lg ${className}`} style={{ height }}>
+            <div 
+                className={`flex items-center justify-center bg-gray-50 rounded-lg ${className}`} 
+                style={{ height: numericHeight === '100%' ? '100%' : numericHeight, minHeight: 200 }}
+            >
                 <div className="text-center">
                     <p className="text-gray-500 text-lg">No hay datos para mostrar</p>
                     <p className="text-gray-400 text-sm mt-1">Los datos se actualizan cada hora</p>
@@ -116,17 +130,24 @@ const PollutantChart = ({
     const hasLowData = chartData.length < 6;
 
     return (
-        <div className={`w-full ${className}`}>
+        <div className={`w-full h-full ${className}`}>
             {hasLowData && (
                 <div className="mb-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-sm text-yellow-700">
                     ⚠️ Datos limitados ({chartData.length} registros). La gráfica se actualizará cuando haya más datos disponibles.
                 </div>
             )}
-            <div style={{ height }}>
+            {/* Contenedor con altura mínima garantizada */}
+            <div 
+                style={{ 
+                    height: numericHeight === '100%' ? '100%' : numericHeight,
+                    minHeight: 200,
+                    width: '100%'
+                }}
+            >
                 <ResponsiveContainer width="100%" height="100%">
                     <LineChart 
                         data={chartData} 
-                        margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                        margin={{ top: 5, right: 20, left: 10, bottom: 5 }}
                     >
                         <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                         <XAxis 
@@ -140,6 +161,7 @@ const PollutantChart = ({
                             tick={{ fontSize: 11 }} 
                             domain={yDomain}
                             allowDataOverflow={false}
+                            width={40}
                         />
                         <Tooltip
                             formatter={formatTooltip}

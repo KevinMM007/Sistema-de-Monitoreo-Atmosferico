@@ -1,45 +1,47 @@
 /**
  * Componente ZoneDistributionMap - Mapa de distribución histórica por zonas
- * Fase 4 - Refactorización de HistoricalDataDashboard
  * 
- * Incluye manejo de errores de carga del mapa y soporte de visibilidad
+ * 🆕 MEJORAS:
+ * - Tooltips mejorados estilo Dashboard
+ * - Bloqueo de área del mapa (maxBounds)
+ * - Layout mejorado para alineación de títulos
+ * - Efectos de hover en zonas
  */
 
 import React, { useMemo, useEffect, useRef, useState } from 'react';
-import { MapContainer, TileLayer, Rectangle, Popup, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Rectangle, Tooltip, useMap } from 'react-leaflet';
 import { Database } from 'lucide-react';
 import { MAP_CONFIG, XALAPA_ZONES, getPollutantColor } from '../../utils/constants';
 
 /**
- * Componente para invalidar el tamaño del mapa
- * Se ejecuta cuando el mapa se monta y cuando isVisible cambia
+ * Componente para manejar bounds y tamaño del mapa
  */
-const MapInvalidator = ({ isVisible }) => {
+const MapBoundsHandler = ({ isVisible }) => {
     const map = useMap();
     const wasVisible = useRef(isVisible);
     
     useEffect(() => {
-        // Invalidar tamaño inicial
-        const invalidate = () => {
-            if (map) {
-                map.invalidateSize();
-            }
-        };
-        
-        invalidate();
-        const timer1 = setTimeout(invalidate, 100);
-        const timer2 = setTimeout(invalidate, 300);
-        const timer3 = setTimeout(invalidate, 600);
-        
-        return () => {
-            clearTimeout(timer1);
-            clearTimeout(timer2);
-            clearTimeout(timer3);
-        };
+        if (map) {
+            // Establecer límites del mapa
+            map.setMaxBounds(MAP_CONFIG.maxBounds);
+            map.options.maxBoundsViscosity = 1.0;
+            
+            // Invalidar tamaño
+            const invalidate = () => map.invalidateSize();
+            invalidate();
+            const timer1 = setTimeout(invalidate, 100);
+            const timer2 = setTimeout(invalidate, 300);
+            const timer3 = setTimeout(invalidate, 600);
+            
+            return () => {
+                clearTimeout(timer1);
+                clearTimeout(timer2);
+                clearTimeout(timer3);
+            };
+        }
     }, [map]);
     
     useEffect(() => {
-        // Cuando cambia de no visible a visible
         if (isVisible && !wasVisible.current && map) {
             const invalidate = () => map.invalidateSize();
             invalidate();
@@ -50,12 +52,9 @@ const MapInvalidator = ({ isVisible }) => {
         wasVisible.current = isVisible;
     }, [isVisible, map]);
     
-    // También escuchar eventos de resize de ventana
     useEffect(() => {
         const handleResize = () => {
-            if (map) {
-                map.invalidateSize();
-            }
+            if (map) map.invalidateSize();
         };
         
         window.addEventListener('resize', handleResize);
@@ -65,6 +64,188 @@ const MapInvalidator = ({ isVisible }) => {
     return null;
 };
 
+/**
+ * Rectángulo de zona con tooltip mejorado
+ */
+const HistoricalZoneRectangle = ({ zone, stats, osmZone }) => {
+    if (!stats?.pm25) return null;
+    
+    const pm25Avg = stats.pm25.avg;
+    const color = getPollutantColor('pm25', pm25Avg);
+    const hasOSMData = osmZone?.metrics && !osmZone.metrics.error;
+    const pollutionFactor = osmZone?.pollution_factor || stats.pollutionFactor || 1.0;
+    const hasSignificantFactor = pollutionFactor > 1.05;
+    
+    return (
+        <Rectangle
+            bounds={zone.bounds}
+            pathOptions={{
+                color: '#FFFFFF',
+                weight: 2,
+                fillColor: color,
+                fillOpacity: 0.35
+            }}
+            eventHandlers={{
+                mouseover: (e) => {
+                    e.target.setStyle({
+                        fillOpacity: 0.55,
+                        weight: 3,
+                        color: '#3b82f6'
+                    });
+                },
+                mouseout: (e) => {
+                    e.target.setStyle({
+                        fillOpacity: 0.35,
+                        weight: 2,
+                        color: '#FFFFFF'
+                    });
+                }
+            }}
+        >
+            <Tooltip 
+                sticky={true}
+                direction="auto"
+                opacity={1}
+                className="zone-tooltip"
+            >
+                <div className="tooltip-content">
+                    {/* Header con gradiente */}
+                    <div className="tooltip-header">
+                        <div className="tooltip-icon">📍</div>
+                        <div className="tooltip-title">{zone.name}</div>
+                        {hasSignificantFactor && (
+                            <div className="traffic-badge">
+                                Factor: {pollutionFactor.toFixed(2)}x
+                            </div>
+                        )}
+                    </div>
+                    
+                    {/* Sección de Contaminantes */}
+                    <div className="tooltip-section">
+                        <div className="section-header">
+                            <span className="section-icon">📊</span>
+                            <span className="section-title">Promedio Histórico</span>
+                        </div>
+                        <div className="pollutant-grid">
+                            <div className="pollutant-item">
+                                <span className="pollutant-name">PM2.5</span>
+                                <span className="pollutant-value">{stats.pm25.avg.toFixed(1)}</span>
+                                <span className="pollutant-unit">µg/m³</span>
+                            </div>
+                            <div className="pollutant-item">
+                                <span className="pollutant-name">PM10</span>
+                                <span className="pollutant-value">{stats.pm10.avg.toFixed(1)}</span>
+                                <span className="pollutant-unit">µg/m³</span>
+                            </div>
+                            <div className="pollutant-item">
+                                <span className="pollutant-name">NO₂</span>
+                                <span className="pollutant-value">{stats.no2.avg.toFixed(1)}</span>
+                                <span className="pollutant-unit">µg/m³</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {/* Sección de Infraestructura OSM */}
+                    {hasOSMData && (
+                        <div className="tooltip-section" style={{ background: 'linear-gradient(180deg, #f0fdf4 0%, #dcfce7 100%)', borderRadius: '0 0 16px 16px' }}>
+                            <div className="section-header">
+                                <span className="section-icon">🛣️</span>
+                                <span className="section-title">Infraestructura (OSM)</span>
+                                <span style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
+                                    background: '#10b981',
+                                    color: 'white',
+                                    padding: '2px 8px',
+                                    borderRadius: '20px',
+                                    fontSize: '9px',
+                                    fontWeight: '700',
+                                    letterSpacing: '0.5px',
+                                    marginLeft: 'auto'
+                                }}>
+                                    <span style={{
+                                        width: '6px',
+                                        height: '6px',
+                                        background: 'white',
+                                        borderRadius: '50%'
+                                    }}></span>
+                                    REAL
+                                </span>
+                            </div>
+                            <div style={{ 
+                                display: 'grid', 
+                                gridTemplateColumns: 'repeat(2, 1fr)', 
+                                gap: '8px',
+                                marginTop: '8px'
+                            }}>
+                                <div style={{ 
+                                    background: 'rgba(255,255,255,0.7)', 
+                                    padding: '8px', 
+                                    borderRadius: '8px',
+                                    textAlign: 'center'
+                                }}>
+                                    <div style={{ fontSize: '10px', color: '#334155', fontWeight: '600', marginBottom: '2px' }}>
+                                        Vías principales
+                                    </div>
+                                    <div style={{ fontSize: '16px', fontWeight: '800', color: '#0f172a' }}>
+                                        {osmZone.metrics.main_roads_count}
+                                    </div>
+                                </div>
+                                <div style={{ 
+                                    background: 'rgba(255,255,255,0.7)', 
+                                    padding: '8px', 
+                                    borderRadius: '8px',
+                                    textAlign: 'center'
+                                }}>
+                                    <div style={{ fontSize: '10px', color: '#334155', fontWeight: '600', marginBottom: '2px' }}>
+                                        Densidad vial
+                                    </div>
+                                    <div style={{ fontSize: '16px', fontWeight: '800', color: '#0f172a' }}>
+                                        {osmZone.metrics.road_density_km_per_km2}
+                                        <span style={{ fontSize: '10px', fontWeight: '500', marginLeft: '2px' }}>km/km²</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div style={{ 
+                                marginTop: '8px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                fontSize: '11px',
+                                color: '#166534',
+                                fontWeight: '500'
+                            }}>
+                                <span>✅</span>
+                                <span>Factor calculado: <strong>{pollutionFactor.toFixed(2)}x</strong></span>
+                            </div>
+                        </div>
+                    )}
+                    
+                    {/* Si no hay datos OSM */}
+                    {!hasOSMData && (
+                        <div className="tooltip-section" style={{ background: '#f8fafc', borderRadius: '0 0 16px 16px' }}>
+                            <div style={{ 
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                fontSize: '11px',
+                                color: '#64748b'
+                            }}>
+                                <span>ℹ️</span>
+                                <span>Datos basados en estimación satelital (Open-Meteo)</span>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </Tooltip>
+        </Rectangle>
+    );
+};
+
+/**
+ * Componente principal
+ */
 const ZoneDistributionMap = ({
     zoneStatistics,
     osmAnalysis,
@@ -75,7 +256,6 @@ const ZoneDistributionMap = ({
     const [mapKey, setMapKey] = useState(0);
     const containerRef = useRef(null);
     
-    // Convertir zonas al formato necesario (XALAPA_ZONES es un array)
     const zones = useMemo(() => {
         return XALAPA_ZONES.map(zone => ({
             name: zone.name,
@@ -83,10 +263,8 @@ const ZoneDistributionMap = ({
         }));
     }, []);
 
-    // Forzar re-render del mapa cuando se vuelve visible
     useEffect(() => {
         if (isVisible) {
-            // Pequeño delay para asegurar que el contenedor es visible
             const timer = setTimeout(() => {
                 setMapKey(prev => prev + 1);
             }, 50);
@@ -102,132 +280,7 @@ const ZoneDistributionMap = ({
         );
     }
 
-    return (
-        <div className={`${className}`}>
-            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                Distribución Histórica por Zonas
-                {osmAnalysis && (
-                    <span className="text-sm font-normal text-gray-600">
-                        <Database size={14} className="inline mr-1" />
-                        Basado en datos reales de OpenStreetMap
-                    </span>
-                )}
-            </h3>
-            
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Mapa */}
-                <div 
-                    ref={containerRef}
-                    className="h-[400px] rounded-lg overflow-hidden shadow-md bg-gray-100"
-                >
-                    <MapContainer
-                        key={mapKey}
-                        center={MAP_CONFIG.center}
-                        zoom={MAP_CONFIG.zoom}
-                        style={{ height: '100%', width: '100%' }}
-                    >
-                        <MapInvalidator isVisible={isVisible} />
-                        <TileLayer
-                            url={MAP_CONFIG.tileLayerUrl}
-                            attribution={MAP_CONFIG.attribution}
-                        />
-                        {zones.map((zone, index) => {
-                            const zoneStats = zoneStatistics[zone.name];
-                            if (!zoneStats?.pm25) return null;
-                            
-                            const pm25Avg = zoneStats.pm25.avg;
-                            const color = getPollutantColor('pm25', pm25Avg);
-                            const osmZone = osmAnalysis?.zones?.find(z => z.zone_name === zone.name);
-                            
-                            return (
-                                <Rectangle
-                                    key={index}
-                                    bounds={zone.bounds}
-                                    pathOptions={{
-                                        color: '#FFFFFF',
-                                        weight: 2,
-                                        fillColor: color,
-                                        fillOpacity: 0.5
-                                    }}
-                                >
-                                    <Popup>
-                                        <ZonePopup 
-                                            zone={zone} 
-                                            stats={zoneStats}
-                                            osmZone={osmZone}
-                                        />
-                                    </Popup>
-                                </Rectangle>
-                            );
-                        })}
-                    </MapContainer>
-                </div>
-
-                {/* Ranking de zonas */}
-                <ZoneRanking 
-                    zones={zones}
-                    zoneStatistics={zoneStatistics}
-                    osmAnalysis={osmAnalysis}
-                    loadingOSM={loadingOSM}
-                />
-            </div>
-        </div>
-    );
-};
-
-/**
- * Popup de información de zona
- */
-const ZonePopup = ({ zone, stats, osmZone }) => (
-    <div className="p-2 min-w-[200px]">
-        <h4 className="font-bold text-lg mb-2">{zone.name}</h4>
-        <div className="space-y-2">
-            <div className="bg-gray-50 p-2 rounded">
-                <div className="text-sm font-semibold mb-1">Contaminantes</div>
-                <div className="space-y-1 text-sm">
-                    <div className="flex justify-between">
-                        <span>PM2.5:</span>
-                        <span>{stats.pm25.avg.toFixed(1)} μg/m³</span>
-                    </div>
-                    <div className="flex justify-between">
-                        <span>PM10:</span>
-                        <span>{stats.pm10.avg.toFixed(1)} μg/m³</span>
-                    </div>
-                    <div className="flex justify-between">
-                        <span>NO₂:</span>
-                        <span>{stats.no2.avg.toFixed(1)} μg/m³</span>
-                    </div>
-                </div>
-            </div>
-            
-            {osmZone?.metrics && !osmZone.metrics.error && (
-                <div className="bg-blue-50 p-2 rounded">
-                    <div className="text-sm font-semibold mb-1">Infraestructura (OSM)</div>
-                    <div className="space-y-1 text-xs">
-                        <div className="flex justify-between">
-                            <span>Vías principales:</span>
-                            <span>{osmZone.metrics.main_roads_count}</span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span>Densidad vial:</span>
-                            <span>{osmZone.metrics.road_density_km_per_km2} km/km²</span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span>Factor calculado:</span>
-                            <span>{osmZone.pollution_factor}x</span>
-                        </div>
-                    </div>
-                </div>
-            )}
-        </div>
-    </div>
-);
-
-/**
- * Ranking de contaminación por zonas
- */
-const ZoneRanking = ({ zones, zoneStatistics, osmAnalysis, loadingOSM }) => {
-    // Ordenar zonas por PM2.5
+    // Ordenar zonas por PM2.5 para el ranking
     const sortedZones = useMemo(() => {
         return zones
             .filter(zone => {
@@ -242,47 +295,104 @@ const ZoneRanking = ({ zones, zoneStatistics, osmAnalysis, loadingOSM }) => {
     }, [zones, zoneStatistics]);
 
     return (
-        <div>
-            <h4 className="font-semibold mb-3">Ranking de Contaminación por Zona</h4>
-            
-            {loadingOSM && (
-                <div className="text-center py-4">
-                    <p className="text-gray-600">Cargando datos de infraestructura...</p>
-                </div>
-            )}
-            
-            <div className="space-y-2">
-                {sortedZones.map((zone, index) => {
-                    const stats = zoneStatistics[zone.name];
-                    const osmZone = osmAnalysis?.zones?.find(z => z.zone_name === zone.name);
+        <div className={`${className}`}>
+            {/* Grid con títulos alineados */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Columna del Mapa */}
+                <div>
+                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                        Distribución Histórica por Zonas
+                        {osmAnalysis && (
+                            <span className="text-sm font-normal text-gray-600">
+                                <Database size={14} className="inline mr-1" />
+                                Basado en datos reales de OpenStreetMap
+                            </span>
+                        )}
+                    </h3>
                     
-                    return (
-                        <ZoneRankingItem
-                            key={zone.name}
-                            zone={zone}
-                            stats={stats}
-                            osmZone={osmZone}
-                            rank={index + 1}
-                        />
-                    );
-                })}
-            </div>
-            
-            {/* Explicación de factores OSM */}
-            {osmAnalysis?.zones && (
-                <div className="mt-4 p-3 bg-green-50 rounded-lg">
-                    <h5 className="font-semibold text-green-900 text-sm mb-2">
-                        <Database size={14} className="inline mr-1" />
-                        Factores basados en OpenStreetMap
-                    </h5>
-                    <ul className="text-xs text-green-800 space-y-1">
-                        <li>• Densidad vial ponderada (40% del factor)</li>
-                        <li>• Cantidad de vías principales (25%)</li>
-                        <li>• Zonas comerciales e industriales (25%)</li>
-                        <li>• Puntos de interés con alto tráfico (10%)</li>
-                    </ul>
+                    <div 
+                        ref={containerRef}
+                        className="h-[400px] rounded-lg overflow-hidden shadow-md bg-gray-100"
+                    >
+                        <MapContainer
+                            key={mapKey}
+                            center={MAP_CONFIG.center}
+                            zoom={MAP_CONFIG.zoom}
+                            minZoom={MAP_CONFIG.minZoom}
+                            maxZoom={MAP_CONFIG.maxZoom}
+                            maxBounds={MAP_CONFIG.maxBounds}
+                            maxBoundsViscosity={1.0}
+                            scrollWheelZoom={true}
+                            style={{ height: '100%', width: '100%' }}
+                        >
+                            <MapBoundsHandler isVisible={isVisible} />
+                            <TileLayer
+                                url={MAP_CONFIG.tileLayerUrl}
+                                attribution={MAP_CONFIG.attribution}
+                            />
+                            {zones.map((zone, index) => {
+                                const zoneStats = zoneStatistics[zone.name];
+                                const osmZone = osmAnalysis?.zones?.find(z => z.zone_name === zone.name);
+                                
+                                return (
+                                    <HistoricalZoneRectangle
+                                        key={index}
+                                        zone={zone}
+                                        stats={zoneStats}
+                                        osmZone={osmZone}
+                                    />
+                                );
+                            })}
+                        </MapContainer>
+                    </div>
                 </div>
-            )}
+
+                {/* Columna del Ranking */}
+                <div>
+                    <h3 className="text-lg font-semibold mb-4">
+                        Ranking de Contaminación por Zona
+                    </h3>
+                    
+                    {loadingOSM && (
+                        <div className="text-center py-4">
+                            <p className="text-gray-600">Cargando datos de infraestructura...</p>
+                        </div>
+                    )}
+                    
+                    <div className="space-y-2">
+                        {sortedZones.map((zone, index) => {
+                            const stats = zoneStatistics[zone.name];
+                            const osmZone = osmAnalysis?.zones?.find(z => z.zone_name === zone.name);
+                            
+                            return (
+                                <ZoneRankingItem
+                                    key={zone.name}
+                                    zone={zone}
+                                    stats={stats}
+                                    osmZone={osmZone}
+                                    rank={index + 1}
+                                />
+                            );
+                        })}
+                    </div>
+                    
+                    {/* Explicación de factores OSM */}
+                    {osmAnalysis?.zones && (
+                        <div className="mt-4 p-3 bg-green-50 rounded-lg">
+                            <h5 className="font-semibold text-green-900 text-sm mb-2">
+                                <Database size={14} className="inline mr-1" />
+                                Factores basados en OpenStreetMap
+                            </h5>
+                            <ul className="text-xs text-green-800 space-y-1">
+                                <li>• Densidad vial ponderada (40% del factor)</li>
+                                <li>• Cantidad de vías principales (25%)</li>
+                                <li>• Zonas comerciales e industriales (25%)</li>
+                                <li>• Puntos de interés con alto tráfico (10%)</li>
+                            </ul>
+                        </div>
+                    )}
+                </div>
+            </div>
         </div>
     );
 };
@@ -290,65 +400,69 @@ const ZoneRanking = ({ zones, zoneStatistics, osmAnalysis, loadingOSM }) => {
 /**
  * Item del ranking de zonas
  */
-const ZoneRankingItem = ({ zone, stats, osmZone, rank }) => (
-    <div className="bg-gray-50 rounded-lg p-3 hover:shadow-md transition-shadow">
-        <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center font-bold text-gray-700">
-                    {rank}
+const ZoneRankingItem = ({ zone, stats, osmZone, rank }) => {
+    const hasOSMData = osmZone?.metrics && !osmZone.metrics.error;
+    
+    return (
+        <div className="bg-gray-50 rounded-lg p-3 hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center font-bold text-gray-700">
+                        {rank}
+                    </div>
+                    <div>
+                        <div className="font-semibold">{zone.name}</div>
+                        {hasOSMData ? (
+                            <div className="text-xs text-gray-600">
+                                <span className="text-green-600 font-medium">
+                                    <Database size={10} className="inline mr-1" />
+                                    Datos reales OSM
+                                </span>
+                                {' - Factor: '}{osmZone.pollution_factor}x
+                            </div>
+                        ) : (
+                            <div className="text-xs text-gray-600">
+                                Factor estimado: {stats.pollutionFactor?.toFixed(2) || '1.00'}x
+                            </div>
+                        )}
+                    </div>
                 </div>
-                <div>
-                    <div className="font-semibold">{zone.name}</div>
-                    {osmZone?.metrics && !osmZone.metrics.error ? (
-                        <div className="text-xs text-gray-600">
-                            <span className="text-green-600 font-medium">
-                                <Database size={10} className="inline mr-1" />
-                                Datos reales OSM
+                <div className="text-right">
+                    <div className="font-semibold">
+                        {stats.pm25.avg.toFixed(1)} μg/m³
+                    </div>
+                    <div className="text-xs text-gray-600">
+                        PM2.5 promedio
+                    </div>
+                </div>
+            </div>
+            
+            {hasOSMData && (
+                <div className="mt-2 pt-2 border-t border-gray-200">
+                    <div className="grid grid-cols-3 gap-2 text-xs">
+                        <div>
+                            <span className="text-gray-500">Vías:</span>
+                            <span className="font-medium ml-1">
+                                {osmZone.metrics.total_road_length_km} km
                             </span>
-                            {' - Factor: '}{osmZone.pollution_factor}x
                         </div>
-                    ) : (
-                        <div className="text-xs text-gray-600">
-                            Factor estimado: {stats.pollutionFactor?.toFixed(2) || '1.00'}x
+                        <div>
+                            <span className="text-gray-500">POIs:</span>
+                            <span className="font-medium ml-1">
+                                {osmZone.metrics.total_pois}
+                            </span>
                         </div>
-                    )}
+                        <div>
+                            <span className="text-gray-500">Área:</span>
+                            <span className="font-medium ml-1">
+                                {osmZone.metrics.zone_area_km2} km²
+                            </span>
+                        </div>
+                    </div>
                 </div>
-            </div>
-            <div className="text-right">
-                <div className="font-semibold">
-                    {stats.pm25.avg.toFixed(1)} μg/m³
-                </div>
-                <div className="text-xs text-gray-600">
-                    PM2.5 promedio
-                </div>
-            </div>
+            )}
         </div>
-        
-        {osmZone?.metrics && !osmZone.metrics.error && (
-            <div className="mt-2 pt-2 border-t border-gray-200">
-                <div className="grid grid-cols-3 gap-2 text-xs">
-                    <div>
-                        <span className="text-gray-500">Vías:</span>
-                        <span className="font-medium ml-1">
-                            {osmZone.metrics.total_road_length_km} km
-                        </span>
-                    </div>
-                    <div>
-                        <span className="text-gray-500">POIs:</span>
-                        <span className="font-medium ml-1">
-                            {osmZone.metrics.total_pois}
-                        </span>
-                    </div>
-                    <div>
-                        <span className="text-gray-500">Área:</span>
-                        <span className="font-medium ml-1">
-                            {osmZone.metrics.zone_area_km2} km²
-                        </span>
-                    </div>
-                </div>
-            </div>
-        )}
-    </div>
-);
+    );
+};
 
 export default React.memo(ZoneDistributionMap);

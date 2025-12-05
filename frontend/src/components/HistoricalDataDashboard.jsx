@@ -1,8 +1,10 @@
 /**
  * HistoricalDataDashboard - Dashboard de datos históricos
- * Fase 4 - Refactorizado: Usando hooks y componentes centralizados
  * 
- * CORREGIDO: Carga de datos más robusta
+ * 🆕 MEJORAS:
+ * - Responsive design completo
+ * - Accesibilidad mejorada
+ * - Layout adaptativo para móviles
  */
 
 import React, { useState, useCallback, useEffect } from 'react';
@@ -70,8 +72,6 @@ const HistoricalDataDashboard = ({ isVisible = true }) => {
         if (!isInitialized && isVisible) {
             console.log('🚀 [HistoricalDataDashboard] Inicializando y cargando datos...');
             setIsInitialized(true);
-            
-            // Cargar datos con el rango actual
             fetchData();
             fetchOSMAnalysis();
         }
@@ -171,22 +171,20 @@ const HistoricalDataDashboard = ({ isVisible = true }) => {
         }
     }, [fetchData, fetchOSMAnalysis, osmAnalysis, dateRange]);
 
-    // Debug: mostrar estado actual
-    console.log('📊 [HistoricalDataDashboard] Estado actual:', {
-        loading,
-        hasData: historicalData?.length || 0,
-        dateRange,
-        error
-    });
-
     return (
-        <div className="bg-white rounded-lg shadow-lg p-6 animate-fade-in">
+        <div 
+            className="bg-white rounded-lg shadow-lg p-3 sm:p-4 md:p-6 animate-fade-in"
+            role="region"
+            aria-label="Dashboard de datos históricos"
+        >
             {/* Header */}
-            <div className="mb-6">
-                <h2 className="text-2xl font-bold mb-4">Datos Históricos de Calidad del Aire</h2>
+            <header className="mb-4 sm:mb-6">
+                <h2 className="text-lg sm:text-xl md:text-2xl font-bold mb-3 sm:mb-4">
+                    Datos Históricos de Calidad del Aire
+                </h2>
 
                 {/* Filtros */}
-                <div className="space-y-4">
+                <div className="space-y-3 sm:space-y-4">
                     {/* Selector de fechas */}
                     <DateRangeSelector
                         dateRange={dateRange}
@@ -197,8 +195,10 @@ const HistoricalDataDashboard = ({ isVisible = true }) => {
                     />
 
                     {/* Selector de contaminantes */}
-                    <div>
-                        <span className="text-gray-600 text-sm font-medium mr-3">Contaminantes:</span>
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                        <span className="text-gray-600 text-xs sm:text-sm font-medium">
+                            Contaminantes:
+                        </span>
                         <PollutantSelector
                             selectedPollutants={selectedPollutants}
                             onToggle={togglePollutant}
@@ -206,66 +206,88 @@ const HistoricalDataDashboard = ({ isVisible = true }) => {
                     </div>
                 </div>
 
-                {/* Botones de acción */}
-                <div className="flex flex-wrap gap-2 mt-4">
+                {/* Botones de acción - Grid responsive */}
+                <div 
+                    className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 mt-3 sm:mt-4"
+                    role="toolbar"
+                    aria-label="Acciones de datos históricos"
+                >
                     <Button
                         variant="primary"
-                        icon={<RefreshCw size={16} />}
+                        icon={<RefreshCw size={16} aria-hidden="true" />}
                         onClick={handleUpdateData}
                         loading={loading}
+                        className="col-span-2 sm:col-span-1"
+                        ariaLabel={loading ? 'Cargando datos' : 'Actualizar datos históricos'}
                     >
-                        {loading ? 'Cargando...' : 'Actualizar Datos'}
+                        <span className="hidden sm:inline">{loading ? 'Cargando...' : 'Actualizar Datos'}</span>
+                        <span className="sm:hidden">{loading ? 'Cargando...' : 'Actualizar'}</span>
                     </Button>
                     
                     <Button
                         variant="secondary"
-                        icon={<Map size={16} />}
+                        icon={<Map size={16} aria-hidden="true" />}
                         onClick={toggleMap}
                         className="bg-purple-600 hover:bg-purple-700"
+                        ariaLabel={showMap ? 'Ocultar mapa de zonas' : 'Mostrar mapa de zonas'}
                     >
-                        {showMap ? 'Ocultar Mapa' : 'Mostrar Mapa'}
+                        <span className="hidden sm:inline">{showMap ? 'Ocultar Mapa' : 'Mostrar Mapa'}</span>
+                        <span className="sm:hidden">Mapa</span>
                     </Button>
                     
                     <Button
                         variant={showComparator ? 'primary' : 'secondary'}
-                        icon={<GitCompare size={16} />}
+                        icon={<GitCompare size={16} aria-hidden="true" />}
                         onClick={toggleComparator}
                         className={showComparator ? 'bg-indigo-700' : 'bg-indigo-600 hover:bg-indigo-700'}
+                        ariaLabel={showComparator ? 'Ocultar comparador de períodos' : 'Abrir comparador de períodos'}
                     >
-                        {showComparator ? 'Ocultar Comparador' : 'Comparar Períodos'}
+                        <span className="hidden sm:inline">{showComparator ? 'Ocultar Comparador' : 'Comparar'}</span>
+                        <span className="sm:hidden">Comparar</span>
                     </Button>
                     
                     <Button
                         variant="success"
-                        icon={<Download size={16} />}
+                        icon={<Download size={16} aria-hidden="true" />}
                         onClick={exportToCSV}
                         disabled={!historicalData?.length || loading}
+                        ariaLabel="Exportar datos en formato CSV"
                     >
-                        Exportar CSV
+                        <span className="hidden sm:inline">Exportar CSV</span>
+                        <span className="sm:hidden">CSV</span>
                     </Button>
                     
                     <Button
                         variant="secondary"
-                        icon={<Download size={16} />}
+                        icon={<Download size={16} aria-hidden="true" />}
                         onClick={exportToJSON}
                         disabled={!historicalData?.length || loading}
+                        className="hidden sm:flex"
+                        ariaLabel="Exportar datos en formato JSON"
                     >
                         Exportar JSON
                     </Button>
                 </div>
-            </div>
+            </header>
 
             {/* Mensaje de error */}
             {error && (
-                <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-700">
-                    <AlertCircle size={20} />
+                <div 
+                    className="mb-3 sm:mb-4 p-3 sm:p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-700 text-sm"
+                    role="alert"
+                >
+                    <AlertCircle size={20} aria-hidden="true" className="flex-shrink-0" />
                     <span>{error}</span>
                 </div>
             )}
 
             {/* Loading inicial */}
             {loading && (!historicalData || historicalData.length === 0) && (
-                <div className="flex items-center justify-center py-12">
+                <div 
+                    className="flex items-center justify-center py-8 sm:py-12"
+                    role="status"
+                    aria-label="Cargando datos históricos"
+                >
                     <LoadingSpinner size="xl" text="Cargando datos históricos..." />
                 </div>
             )}
@@ -279,30 +301,35 @@ const HistoricalDataDashboard = ({ isVisible = true }) => {
                             statistics={statistics}
                             historicalData={historicalData}
                             selectedPollutants={selectedPollutants}
-                            className="mb-6"
+                            className="mb-4 sm:mb-6"
                         />
                     )}
 
                     {/* Gráfica principal */}
                     {historicalData && historicalData.length > 0 ? (
-                        <HistoricalChart
-                            data={historicalData}
-                            selectedPollutants={selectedPollutants}
-                            timeScale={timeScale}
-                            className="mb-6"
-                        />
+                        <div className="mb-4 sm:mb-6">
+                            <HistoricalChart
+                                data={historicalData}
+                                selectedPollutants={selectedPollutants}
+                                timeScale={timeScale}
+                            />
+                        </div>
                     ) : (
                         /* Mensaje si no hay datos */
                         !error && (
-                            <div className="text-center py-12 bg-gray-50 rounded-lg mb-6">
-                                <div className="text-6xl mb-4">📊</div>
-                                <h3 className="text-xl font-semibold text-gray-700 mb-2">
+                            <div className="text-center py-8 sm:py-12 bg-gray-50 rounded-lg mb-4 sm:mb-6">
+                                <div className="text-4xl sm:text-6xl mb-3 sm:mb-4" aria-hidden="true">📊</div>
+                                <h3 className="text-lg sm:text-xl font-semibold text-gray-700 mb-2">
                                     No hay datos para el rango seleccionado
                                 </h3>
-                                <p className="text-gray-500 mb-4">
+                                <p className="text-gray-500 mb-4 text-sm sm:text-base px-4">
                                     Ajusta las fechas o haz clic en "Actualizar Datos" para obtener información.
                                 </p>
-                                <Button variant="primary" onClick={handleUpdateData}>
+                                <Button 
+                                    variant="primary" 
+                                    onClick={handleUpdateData}
+                                    ariaLabel="Cargar datos históricos"
+                                >
                                     Cargar Datos
                                 </Button>
                             </div>
@@ -311,25 +338,12 @@ const HistoricalDataDashboard = ({ isVisible = true }) => {
                 </>
             )}
 
-            {/* Comparador de Períodos */}
-            {showComparator && (
-                <PeriodComparator
-                    dateRange1={comparison.dateRange1}
-                    dateRange2={comparison.dateRange2}
-                    setDateRange1={comparison.setDateRange1}
-                    setDateRange2={comparison.setDateRange2}
-                    activePreset={comparison.activePreset}
-                    data={comparison.data}
-                    loading={comparison.loading}
-                    fetchWithPreset={comparison.fetchWithPreset}
-                    fetchWithCustomDates={comparison.fetchWithCustomDates}
-                    className="mt-6"
-                />
-            )}
-
             {/* Mapa de distribución por zonas */}
             {showMap && (
-                <div className="mb-6">
+                <section 
+                    className="mt-4 sm:mt-6"
+                    aria-label="Mapa de distribución por zonas"
+                >
                     {calculatedZoneStats ? (
                         <ZoneDistributionMap
                             zoneStatistics={calculatedZoneStats}
@@ -338,9 +352,9 @@ const HistoricalDataDashboard = ({ isVisible = true }) => {
                             isVisible={isVisible}
                         />
                     ) : (
-                        <div className="bg-gray-100 rounded-lg p-8 text-center">
-                            <div className="text-4xl mb-3">🗺️</div>
-                            <p className="text-gray-600">
+                        <div className="bg-gray-100 rounded-lg p-6 sm:p-8 text-center">
+                            <div className="text-3xl sm:text-4xl mb-2 sm:mb-3" aria-hidden="true">🗺️</div>
+                            <p className="text-gray-600 text-sm sm:text-base">
                                 {osmLoading 
                                     ? 'Cargando análisis de zonas...'
                                     : 'Carga datos históricos para ver la distribución por zonas'
@@ -348,7 +362,27 @@ const HistoricalDataDashboard = ({ isVisible = true }) => {
                             </p>
                         </div>
                     )}
-                </div>
+                </section>
+            )}
+
+            {/* Comparador de Períodos */}
+            {showComparator && (
+                <section 
+                    className="mt-4 sm:mt-6"
+                    aria-label="Comparador de períodos"
+                >
+                    <PeriodComparator
+                        dateRange1={comparison.dateRange1}
+                        dateRange2={comparison.dateRange2}
+                        setDateRange1={comparison.setDateRange1}
+                        setDateRange2={comparison.setDateRange2}
+                        activePreset={comparison.activePreset}
+                        data={comparison.data}
+                        loading={comparison.loading}
+                        fetchWithPreset={comparison.fetchWithPreset}
+                        fetchWithCustomDates={comparison.fetchWithCustomDates}
+                    />
+                </section>
             )}
 
             {/* Información sobre los datos */}
@@ -356,13 +390,13 @@ const HistoricalDataDashboard = ({ isVisible = true }) => {
                 title="Información sobre los datos"
                 type="info"
                 icon="ℹ️"
-                className="mt-6"
+                className="mt-4 sm:mt-6"
             >
-                <ul className="space-y-1">
+                <ul className="space-y-1 text-xs sm:text-sm">
                     <li>• Los datos históricos provienen de Open Meteo y la base de datos local</li>
                     <li>• La distribución por zonas usa datos reales de infraestructura vial de OpenStreetMap</li>
-                    <li>• Los factores de contaminación se calculan basándose en densidad vial, tipos de vías y uso de suelo</li>
-                    <li>• Esta metodología proporciona estimaciones más precisas y basadas en evidencia</li>
+                    <li className="hidden sm:list-item">• Los factores de contaminación se calculan basándose en densidad vial, tipos de vías y uso de suelo</li>
+                    <li className="hidden sm:list-item">• Esta metodología proporciona estimaciones más precisas y basadas en evidencia</li>
                 </ul>
             </InfoCard>
         </div>

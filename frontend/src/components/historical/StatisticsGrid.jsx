@@ -1,6 +1,10 @@
 /**
  * Componente StatisticsGrid - Grid de estadísticas globales
- * Fase 4 - Refactorización de HistoricalDataDashboard
+ * 
+ * 🆕 MEJORAS:
+ * - Responsive design completo (grid adaptativo)
+ * - Accesibilidad mejorada (roles, aria-labels)
+ * - Tamaños de fuente adaptativos
  */
 
 import React, { useMemo } from 'react';
@@ -24,6 +28,14 @@ const calculateTrend = (data, pollutant) => {
     return { trend: percentage > 0 ? 'increasing' : 'decreasing', percentage };
 };
 
+/**
+ * Obtiene descripción textual de la tendencia para lectores de pantalla
+ */
+const getTrendDescription = (trend, percentage, pollutantName) => {
+    const direction = trend === 'increasing' ? 'subiendo' : trend === 'decreasing' ? 'bajando' : 'estable';
+    return `${pollutantName}: tendencia ${direction}, ${Math.abs(percentage).toFixed(1)} por ciento`;
+};
+
 const StatisticsGrid = ({
     statistics,
     historicalData,
@@ -35,27 +47,38 @@ const StatisticsGrid = ({
     }
 
     return (
-        <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 ${className}`}>
-            {selectedPollutants.map(pollutant => {
-                const stats = statistics[pollutant];
-                if (!stats || typeof stats.avg === 'undefined') return null;
-                
-                const info = POLLUTANT_INFO[pollutant];
-                if (!info) return null;
-                
-                const trend = calculateTrend(historicalData, pollutant);
-                
-                return (
-                    <StatCard
-                        key={pollutant}
-                        pollutant={pollutant}
-                        info={info}
-                        stats={stats}
-                        trend={trend}
-                    />
-                );
-            })}
-        </div>
+        <section
+            className={className}
+            role="region"
+            aria-label="Estadísticas de contaminantes"
+        >
+            {/* Grid responsive: 1 col en móvil, 2 en tablet, 3 en desktop medio, 5 en desktop grande */}
+            <div 
+                className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4"
+                role="list"
+                aria-label="Lista de estadísticas por contaminante"
+            >
+                {selectedPollutants.map(pollutant => {
+                    const stats = statistics[pollutant];
+                    if (!stats || typeof stats.avg === 'undefined') return null;
+                    
+                    const info = POLLUTANT_INFO[pollutant];
+                    if (!info) return null;
+                    
+                    const trend = calculateTrend(historicalData, pollutant);
+                    
+                    return (
+                        <StatCard
+                            key={pollutant}
+                            pollutant={pollutant}
+                            info={info}
+                            stats={stats}
+                            trend={trend}
+                        />
+                    );
+                })}
+            </div>
+        </section>
     );
 };
 
@@ -69,49 +92,81 @@ const StatCard = React.memo(({ pollutant, info, stats, trend }) => {
         return '#10b981';
     }, [trend.trend]);
 
+    const trendLabel = useMemo(() => {
+        if (trend.trend === 'stable') return 'Estable';
+        if (trend.trend === 'increasing') return 'Subiendo';
+        return 'Bajando';
+    }, [trend.trend]);
+
+    // Descripción completa para lectores de pantalla
+    const cardDescription = `${info.name}: promedio ${stats.avg.toFixed(2)} ${info.unit}, 
+        máximo ${stats.max.toFixed(2)} ${info.unit}, 
+        mínimo ${stats.min.toFixed(2)} ${info.unit}, 
+        tendencia ${trendLabel} ${Math.abs(trend.percentage).toFixed(1)} por ciento`;
+
     return (
-        <div className="bg-gray-50 rounded-lg p-4 hover:shadow-md transition-shadow">
-            <h4 className="font-semibold text-gray-700 mb-2 flex items-center gap-2">
+        <article 
+            className="bg-gray-50 rounded-lg p-3 sm:p-4 hover:shadow-md transition-shadow focus-within:ring-2 focus-within:ring-blue-500"
+            role="listitem"
+            aria-label={cardDescription}
+            tabIndex={0}
+        >
+            {/* Header con nombre y color */}
+            <h4 className="font-semibold text-gray-700 mb-2 flex items-center gap-2 text-sm sm:text-base">
                 <span 
-                    className="w-3 h-3 rounded-full"
+                    className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full flex-shrink-0"
                     style={{ backgroundColor: info.color }}
+                    aria-hidden="true"
                 />
-                {info.name}
+                <span className="truncate">{info.name}</span>
             </h4>
             
-            <div className="space-y-1 text-sm">
-                <div className="flex justify-between">
-                    <span className="text-gray-500">Promedio:</span>
-                    <span className="font-medium">{stats.avg.toFixed(2)} {info.unit}</span>
+            {/* Estadísticas */}
+            <dl className="space-y-1 text-xs sm:text-sm">
+                <div className="flex justify-between items-center">
+                    <dt className="text-gray-500">Promedio:</dt>
+                    <dd className="font-medium text-gray-800">
+                        {stats.avg.toFixed(2)} <span className="text-gray-500">{info.unit}</span>
+                    </dd>
                 </div>
-                <div className="flex justify-between">
-                    <span className="text-gray-500">Máximo:</span>
-                    <span className="font-medium">{stats.max.toFixed(2)} {info.unit}</span>
+                <div className="flex justify-between items-center">
+                    <dt className="text-gray-500">Máximo:</dt>
+                    <dd className="font-medium text-gray-800">
+                        {stats.max.toFixed(2)} <span className="text-gray-500">{info.unit}</span>
+                    </dd>
                 </div>
-                <div className="flex justify-between">
-                    <span className="text-gray-500">Mínimo:</span>
-                    <span className="font-medium">{stats.min.toFixed(2)} {info.unit}</span>
+                <div className="flex justify-between items-center">
+                    <dt className="text-gray-500">Mínimo:</dt>
+                    <dd className="font-medium text-gray-800">
+                        {stats.min.toFixed(2)} <span className="text-gray-500">{info.unit}</span>
+                    </dd>
                 </div>
-                
-                {/* Indicador de tendencia */}
-                <div className="flex items-center gap-1 mt-2 pt-2 border-t border-gray-200">
-                    <TrendingUp 
-                        size={16} 
-                        className={trend.trend === 'decreasing' ? 'rotate-180' : ''}
-                        style={{ color: trendColor }}
-                    />
-                    <span 
-                        className="text-xs font-medium"
-                        style={{ color: trendColor }}
-                    >
-                        {trend.trend === 'stable' ? 'Estable' : 
-                         trend.trend === 'increasing' ? 'Subiendo' : 'Bajando'} 
-                        ({Math.abs(trend.percentage).toFixed(1)}%)
-                    </span>
-                </div>
+            </dl>
+            
+            {/* Indicador de tendencia */}
+            <div 
+                className="flex items-center gap-1 mt-2 pt-2 border-t border-gray-200"
+                role="status"
+                aria-label={`Tendencia: ${trendLabel}, ${Math.abs(trend.percentage).toFixed(1)} por ciento`}
+            >
+                <TrendingUp 
+                    size={14} 
+                    className={`flex-shrink-0 ${trend.trend === 'decreasing' ? 'rotate-180' : ''}`}
+                    style={{ color: trendColor }}
+                    aria-hidden="true"
+                />
+                <span 
+                    className="text-xs font-medium truncate"
+                    style={{ color: trendColor }}
+                >
+                    {trendLabel} ({Math.abs(trend.percentage).toFixed(1)}%)
+                </span>
             </div>
-        </div>
+        </article>
     );
 });
+
+// Nombre para debugging
+StatCard.displayName = 'StatCard';
 
 export default React.memo(StatisticsGrid);

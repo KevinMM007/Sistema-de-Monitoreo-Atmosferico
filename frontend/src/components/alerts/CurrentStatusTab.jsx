@@ -1,8 +1,10 @@
 /**
  * Componente CurrentStatusTab - Tab de Estado Actual
- * Fase 4 - Refactorización de AlertsAndPredictions
  * 
- * SIMPLIFICADO: Solo muestra información esencial sin redundancias
+ * 🆕 MEJORAS:
+ * - Responsive design completo para móviles
+ * - Accesibilidad mejorada (aria-labels, roles)
+ * - Layout adaptativo en sección AQI
  */
 
 import React from 'react';
@@ -42,8 +44,12 @@ const formatPollutantName = (pollutant) => {
 const CurrentStatusTab = ({ alert, zoneData }) => {
     if (!alert) {
         return (
-            <div className="text-center py-8 text-gray-500 animate-fade-in">
-                <div className="text-4xl mb-2">📊</div>
+            <div 
+                className="text-center py-6 sm:py-8 text-gray-500 animate-fade-in"
+                role="status"
+                aria-label="Sin datos de alerta disponibles"
+            >
+                <div className="text-3xl sm:text-4xl mb-2" aria-hidden="true">📊</div>
                 No hay datos de alerta disponibles
             </div>
         );
@@ -53,82 +59,117 @@ const CurrentStatusTab = ({ alert, zoneData }) => {
     const levelInfo = AIR_QUALITY_LEVELS[level] || AIR_QUALITY_LEVELS.bueno;
 
     return (
-        <div className="animate-fade-in space-y-6">
-            {/* Sección AQI */}
+        <div className="animate-fade-in space-y-4 sm:space-y-6">
+            {/* Sección AQI - Responsive */}
             {alert.aqi && (
-                <div className="p-5 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl border">
-                    <div className="flex items-center justify-between mb-3">
-                        <h3 className="font-bold text-lg text-gray-800">
+                <section 
+                    className="p-3 sm:p-5 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl border"
+                    aria-labelledby="aqi-title"
+                >
+                    {/* Header responsive */}
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-0 mb-3">
+                        <h3 id="aqi-title" className="font-bold text-base sm:text-lg text-gray-800">
                             Índice de Calidad del Aire (AQI)
                         </h3>
-                        <div className="text-sm text-gray-500">
+                        <time 
+                            className="text-xs sm:text-sm text-gray-500"
+                            dateTime={alert.timestamp}
+                        >
                             {new Date(alert.timestamp).toLocaleString('es-MX')}
-                        </div>
+                        </time>
                     </div>
                     
-                    <div className="flex items-center gap-6">
+                    {/* AQI display - Stack vertical en móvil, horizontal en desktop */}
+                    <div className="flex flex-col sm:flex-row items-center sm:items-center gap-3 sm:gap-6">
+                        {/* Valor AQI */}
                         <div 
-                            className="text-5xl font-bold px-4 py-2 rounded-lg text-white shadow-lg"
+                            className="text-4xl sm:text-5xl font-bold px-4 py-2 rounded-lg text-white shadow-lg"
                             style={{ backgroundColor: levelInfo.color }}
+                            role="meter"
+                            aria-valuenow={alert.aqi.overall}
+                            aria-valuemin={0}
+                            aria-valuemax={500}
+                            aria-label={`Índice AQI: ${alert.aqi.overall?.toFixed(0)}, nivel ${levelInfo.label}`}
                         >
                             {alert.aqi.overall?.toFixed(0) || 'N/A'}
                         </div>
-                        <div className="flex flex-col gap-1">
-                            <div className="flex items-center gap-2">
-                                <span className="text-2xl">{levelInfo.icon}</span>
+                        
+                        {/* Info del nivel */}
+                        <div className="flex flex-col gap-1 text-center sm:text-left">
+                            <div className="flex items-center justify-center sm:justify-start gap-2">
+                                <span className="text-xl sm:text-2xl" aria-hidden="true">{levelInfo.icon}</span>
                                 <span 
-                                    className="font-semibold text-lg"
+                                    className="font-semibold text-base sm:text-lg"
                                     style={{ color: levelInfo.color }}
                                 >
                                     {levelInfo.label}
                                 </span>
                             </div>
-                            <div className="text-sm text-gray-600">
+                            <div className="text-xs sm:text-sm text-gray-600">
                                 {alert.aqi.pm25 && (
-                                    <span className="mr-4">PM2.5: {alert.aqi.pm25.toFixed(0)}</span>
+                                    <span className="mr-3 sm:mr-4">
+                                        PM2.5: {alert.aqi.pm25.toFixed(0)}
+                                    </span>
                                 )}
                                 {alert.aqi.pm10 && (
-                                    <span>PM10: {alert.aqi.pm10.toFixed(0)}</span>
+                                    <span>
+                                        PM10: {alert.aqi.pm10.toFixed(0)}
+                                    </span>
                                 )}
                             </div>
                         </div>
                     </div>
-                </div>
+                </section>
             )}
 
-            {/* Niveles por Zona - Con indicador de ajuste por tráfico */}
+            {/* Niveles por Zona - Responsive */}
             {zoneData?.zones?.length > 0 && (
-                <div className="p-5 bg-blue-50 rounded-xl border border-blue-100">
-                    <h4 className="font-semibold mb-2 text-gray-800 flex items-center gap-2">
-                        🗺️ Niveles por Zona
+                <section 
+                    className="p-3 sm:p-5 bg-blue-50 rounded-xl border border-blue-100"
+                    aria-labelledby="zones-title"
+                >
+                    <h4 id="zones-title" className="font-semibold mb-1 sm:mb-2 text-gray-800 flex items-center gap-2 text-sm sm:text-base">
+                        <span aria-hidden="true">🗺️</span> Niveles por Zona
                     </h4>
-                    <p className="text-xs text-gray-600 mb-4">
+                    <p className="text-xs text-gray-600 mb-3 sm:mb-4">
                         Valores ajustados según tráfico en tiempo real e infraestructura vial
                     </p>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    
+                    {/* Grid responsive: 1 col móvil, 2 cols tablet, 3 cols desktop */}
+                    <div 
+                        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3"
+                        role="list"
+                        aria-label="Lista de zonas con niveles de contaminación"
+                    >
                         {zoneData.zones.map((zone, index) => {
                             const zoneLevelKey = getLevelKey(zone.pollutants.pm25);
                             const zoneLevelInfo = AIR_QUALITY_LEVELS[zoneLevelKey];
                             const hasTrafficImpact = zone.factors?.traffic_factor > 1.05;
                             
                             return (
-                                <div 
-                                    key={index} 
-                                    className="bg-white p-4 rounded-lg border hover:shadow-md transition-shadow"
+                                <article 
+                                    key={index}
+                                    role="listitem"
+                                    className="bg-white p-3 sm:p-4 rounded-lg border hover:shadow-md transition-shadow"
+                                    aria-label={`Zona ${zone.zone_name}: nivel ${zoneLevelInfo.label}`}
                                 >
+                                    {/* Header de zona */}
                                     <div className="flex justify-between items-center mb-2">
-                                        <span className="font-medium">{zone.zone_name}</span>
+                                        <span className="font-medium text-sm sm:text-base">{zone.zone_name}</span>
                                         <span 
-                                            className="px-2 py-1 rounded text-xs font-semibold"
+                                            className="px-2 py-0.5 sm:py-1 rounded text-xs font-semibold"
                                             style={{ 
                                                 backgroundColor: zoneLevelInfo.color,
                                                 color: zoneLevelInfo.textColor 
                                             }}
+                                            role="status"
                                         >
                                             {zoneLevelInfo.label}
                                         </span>
                                     </div>
-                                    <div className="text-sm text-gray-600 space-y-1">
+                                    
+                                    {/* Datos de zona */}
+                                    <div className="text-xs sm:text-sm text-gray-600 space-y-1">
                                         <div className="flex justify-between">
                                             <span>PM2.5:</span>
                                             <span className="font-medium">
@@ -146,40 +187,49 @@ const CurrentStatusTab = ({ alert, zoneData }) => {
                                             </span>
                                         </div>
                                     </div>
+                                    
                                     {/* Indicador de impacto por tráfico */}
                                     {hasTrafficImpact && (
-                                        <div className="mt-2 text-xs bg-orange-50 text-orange-700 px-2 py-1 rounded text-center">
-                                            📈 +{((zone.factors.traffic_factor - 1) * 100).toFixed(0)}% por tráfico
+                                        <div 
+                                            className="mt-2 text-xs bg-orange-50 text-orange-700 px-2 py-1 rounded text-center"
+                                            role="status"
+                                            aria-label={`Incremento de ${((zone.factors.traffic_factor - 1) * 100).toFixed(0)}% por tráfico`}
+                                        >
+                                            <span aria-hidden="true">📈</span> +{((zone.factors.traffic_factor - 1) * 100).toFixed(0)}% por tráfico
                                         </div>
                                     )}
-                                </div>
+                                </article>
                             );
                         })}
                     </div>
-                </div>
+                </section>
             )}
 
-            {/* Solo Recomendaciones Generales */}
+            {/* Recomendaciones Generales */}
             {alert.recommendations?.general && (
                 <InfoCard
                     title="Recomendaciones Generales"
                     type="info"
                     icon="💡"
                 >
-                    {alert.recommendations.general}
+                    <p className="text-xs sm:text-sm">{alert.recommendations.general}</p>
                 </InfoCard>
             )}
 
-            {/* Alerta de contaminantes por encima del nivel óptimo */}
+            {/* Alerta de contaminantes */}
             {alert.alerts?.length > 0 ? (
-                <div className="p-4 bg-amber-50 rounded-xl border border-amber-200">
-                    <div className="flex items-center gap-3">
-                        <span className="text-2xl">⚠️</span>
+                <div 
+                    className="p-3 sm:p-4 bg-amber-50 rounded-xl border border-amber-200"
+                    role="alert"
+                    aria-live="polite"
+                >
+                    <div className="flex items-start sm:items-center gap-2 sm:gap-3">
+                        <span className="text-xl sm:text-2xl flex-shrink-0" aria-hidden="true">⚠️</span>
                         <div>
-                            <h4 className="font-semibold text-amber-800">
+                            <h4 className="font-semibold text-amber-800 text-sm sm:text-base">
                                 {alert.alerts.length} contaminante(s) por encima del nivel óptimo
                             </h4>
-                            <p className="text-sm text-amber-600">
+                            <p className="text-xs sm:text-sm text-amber-600">
                                 {alert.alerts.map(a => formatPollutantName(a.pollutant)).join(', ')} 
                                 - Nivel {alert.alerts[0]?.level?.value?.replace(/_/g, ' ') || 'moderado'}
                             </p>
@@ -187,12 +237,19 @@ const CurrentStatusTab = ({ alert, zoneData }) => {
                     </div>
                 </div>
             ) : (
-                <div className="p-4 bg-green-50 rounded-xl border border-green-200">
-                    <div className="flex items-center gap-3">
-                        <span className="text-2xl">✅</span>
+                <div 
+                    className="p-3 sm:p-4 bg-green-50 rounded-xl border border-green-200"
+                    role="status"
+                >
+                    <div className="flex items-start sm:items-center gap-2 sm:gap-3">
+                        <span className="text-xl sm:text-2xl flex-shrink-0" aria-hidden="true">✅</span>
                         <div>
-                            <h4 className="font-semibold text-green-800">Todos los contaminantes en nivel óptimo</h4>
-                            <p className="text-sm text-green-600">La calidad del aire es buena para todas las actividades al aire libre.</p>
+                            <h4 className="font-semibold text-green-800 text-sm sm:text-base">
+                                Todos los contaminantes en nivel óptimo
+                            </h4>
+                            <p className="text-xs sm:text-sm text-green-600">
+                                La calidad del aire es buena para todas las actividades al aire libre.
+                            </p>
                         </div>
                     </div>
                 </div>

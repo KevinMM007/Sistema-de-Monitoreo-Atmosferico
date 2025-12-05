@@ -1,15 +1,17 @@
 /**
  * Componente PeriodComparator - Comparador de períodos
- * Fase 4 - Refactorización de HistoricalDataDashboard
+ * 
+ * 🆕 MEJORAS:
+ * - Responsive design completo
+ * - Accesibilidad mejorada (labels, roles, aria-labels)
+ * - Layout adaptativo para móviles
  */
 
 import React from 'react';
 import { GitCompare, Calendar } from 'lucide-react';
 import { Button, LoadingSpinner } from '../common';
-import { COMPARISON_PRESETS } from '../../utils/constants';
 
 const PeriodComparator = ({
-    // Datos del hook useComparison
     dateRange1,
     dateRange2,
     setDateRange1,
@@ -23,9 +25,9 @@ const PeriodComparator = ({
 }) => {
     // Presets para comparaciones rápidas
     const presets = [
-        { id: 'today-yesterday', label: 'Hoy vs Ayer', icon: '📅' },
-        { id: 'this-week-last-week', label: 'Esta semana vs Anterior', icon: '📆' },
-        { id: 'this-month-last-month', label: 'Este mes vs Anterior', icon: '🗓️' },
+        { id: 'today-yesterday', label: 'Hoy vs Ayer', shortLabel: 'Hoy/Ayer', icon: '📅' },
+        { id: 'this-week-last-week', label: 'Esta semana vs Anterior', shortLabel: 'Semana', icon: '📆' },
+        { id: 'this-month-last-month', label: 'Este mes vs Anterior', shortLabel: 'Mes', icon: '🗓️' },
     ];
 
     const getTrendIcon = (trend) => {
@@ -41,104 +43,167 @@ const PeriodComparator = ({
     };
 
     return (
-        <div className={`bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl p-6 border border-indigo-200 ${className}`}>
-            {/* Header */}
-            <div className="flex items-center justify-between mb-6">
+        <section 
+            className={`bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl p-4 sm:p-6 border border-indigo-200 ${className}`}
+            role="region"
+            aria-label="Comparador de períodos de calidad del aire"
+        >
+            {/* Header - Responsive */}
+            <header className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4 sm:mb-6">
                 <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center">
-                        <GitCompare className="text-white" size={20} />
+                    <div 
+                        className="w-9 h-9 sm:w-10 sm:h-10 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center flex-shrink-0"
+                        aria-hidden="true"
+                    >
+                        <GitCompare className="text-white" size={18} />
                     </div>
                     <div>
-                        <h3 className="text-xl font-bold text-gray-800">Comparador de Períodos</h3>
-                        <p className="text-sm text-gray-600">Compara la calidad del aire entre diferentes fechas</p>
+                        <h3 className="text-lg sm:text-xl font-bold text-gray-800">
+                            Comparador de Períodos
+                        </h3>
+                        <p className="text-xs sm:text-sm text-gray-600 hidden sm:block">
+                            Compara la calidad del aire entre diferentes fechas
+                        </p>
                     </div>
                 </div>
-            </div>
+            </header>
 
-            {/* Presets rápidos */}
-            <div className="mb-6">
-                <h4 className="font-medium text-gray-700 mb-3">Comparaciones rápidas:</h4>
-                <div className="flex flex-wrap gap-2">
+            {/* Presets rápidos - Grid en móvil */}
+            <div className="mb-4 sm:mb-6">
+                <h4 className="font-medium text-gray-700 mb-2 sm:mb-3 text-sm sm:text-base">
+                    Comparaciones rápidas:
+                </h4>
+                <div 
+                    className="grid grid-cols-3 sm:flex sm:flex-wrap gap-2"
+                    role="group"
+                    aria-label="Presets de comparación rápida"
+                >
                     {presets.map(preset => (
                         <button
                             key={preset.id}
                             onClick={() => fetchWithPreset(preset.id)}
-                            className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
-                                activePreset === preset.id
+                            aria-pressed={activePreset === preset.id}
+                            className={`
+                                px-2 sm:px-4 py-2 rounded-lg font-medium transition-all 
+                                flex items-center justify-center gap-1 sm:gap-2
+                                text-xs sm:text-sm
+                                focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2
+                                ${activePreset === preset.id
                                     ? 'bg-indigo-600 text-white shadow-lg'
                                     : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
-                            }`}
+                                }
+                            `}
                         >
-                            <span>{preset.icon}</span>
-                            {preset.label}
+                            <span aria-hidden="true">{preset.icon}</span>
+                            <span className="hidden sm:inline">{preset.label}</span>
+                            <span className="sm:hidden">{preset.shortLabel}</span>
                         </button>
                     ))}
                 </div>
             </div>
 
             {/* Selector de fechas personalizadas */}
-            <div className="bg-white rounded-xl p-5 mb-6 border border-gray-200">
-                <h4 className="font-medium text-gray-700 mb-4 flex items-center gap-2">
-                    <Calendar size={18} />
+            <div className="bg-white rounded-xl p-4 sm:p-5 mb-4 sm:mb-6 border border-gray-200">
+                <h4 className="font-medium text-gray-700 mb-3 sm:mb-4 flex items-center gap-2 text-sm sm:text-base">
+                    <Calendar size={16} aria-hidden="true" />
                     Comparación personalizada:
                 </h4>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Períodos - Stack en móvil, grid en desktop */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
                     {/* Período 1 */}
-                    <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
-                        <label className="block text-sm font-medium text-blue-700 mb-2">Período 1</label>
-                        <div className="flex gap-2 items-center">
-                            <input
-                                type="date"
-                                value={dateRange1.start}
-                                onChange={(e) => setDateRange1({...dateRange1, start: e.target.value})}
-                                className="flex-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm"
-                            />
-                            <span className="text-gray-400">→</span>
-                            <input
-                                type="date"
-                                value={dateRange1.end}
-                                onChange={(e) => setDateRange1({...dateRange1, end: e.target.value})}
-                                className="flex-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm"
-                            />
+                    <fieldset className="bg-blue-50 p-3 sm:p-4 rounded-lg border border-blue-100">
+                        <legend className="text-sm font-medium text-blue-700 mb-2 px-1">
+                            Período 1
+                        </legend>
+                        <div className="flex flex-col xs:flex-row gap-2 items-start xs:items-center">
+                            <div className="flex-1 w-full xs:w-auto">
+                                <label htmlFor="period1-start" className="sr-only">
+                                    Fecha inicio período 1
+                                </label>
+                                <input
+                                    type="date"
+                                    id="period1-start"
+                                    value={dateRange1.start}
+                                    onChange={(e) => setDateRange1({...dateRange1, start: e.target.value})}
+                                    aria-label="Fecha de inicio del período 1"
+                                    className="w-full px-2 sm:px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm"
+                                />
+                            </div>
+                            <span className="text-gray-400 hidden xs:inline" aria-hidden="true">→</span>
+                            <div className="flex-1 w-full xs:w-auto">
+                                <label htmlFor="period1-end" className="sr-only">
+                                    Fecha fin período 1
+                                </label>
+                                <input
+                                    type="date"
+                                    id="period1-end"
+                                    value={dateRange1.end}
+                                    onChange={(e) => setDateRange1({...dateRange1, end: e.target.value})}
+                                    aria-label="Fecha de fin del período 1"
+                                    className="w-full px-2 sm:px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm"
+                                />
+                            </div>
                         </div>
-                    </div>
+                    </fieldset>
 
                     {/* Período 2 */}
-                    <div className="bg-purple-50 p-4 rounded-lg border border-purple-100">
-                        <label className="block text-sm font-medium text-purple-700 mb-2">Período 2</label>
-                        <div className="flex gap-2 items-center">
-                            <input
-                                type="date"
-                                value={dateRange2.start}
-                                onChange={(e) => setDateRange2({...dateRange2, start: e.target.value})}
-                                className="flex-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none text-sm"
-                            />
-                            <span className="text-gray-400">→</span>
-                            <input
-                                type="date"
-                                value={dateRange2.end}
-                                onChange={(e) => setDateRange2({...dateRange2, end: e.target.value})}
-                                className="flex-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none text-sm"
-                            />
+                    <fieldset className="bg-purple-50 p-3 sm:p-4 rounded-lg border border-purple-100">
+                        <legend className="text-sm font-medium text-purple-700 mb-2 px-1">
+                            Período 2
+                        </legend>
+                        <div className="flex flex-col xs:flex-row gap-2 items-start xs:items-center">
+                            <div className="flex-1 w-full xs:w-auto">
+                                <label htmlFor="period2-start" className="sr-only">
+                                    Fecha inicio período 2
+                                </label>
+                                <input
+                                    type="date"
+                                    id="period2-start"
+                                    value={dateRange2.start}
+                                    onChange={(e) => setDateRange2({...dateRange2, start: e.target.value})}
+                                    aria-label="Fecha de inicio del período 2"
+                                    className="w-full px-2 sm:px-3 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none text-sm"
+                                />
+                            </div>
+                            <span className="text-gray-400 hidden xs:inline" aria-hidden="true">→</span>
+                            <div className="flex-1 w-full xs:w-auto">
+                                <label htmlFor="period2-end" className="sr-only">
+                                    Fecha fin período 2
+                                </label>
+                                <input
+                                    type="date"
+                                    id="period2-end"
+                                    value={dateRange2.end}
+                                    onChange={(e) => setDateRange2({...dateRange2, end: e.target.value})}
+                                    aria-label="Fecha de fin del período 2"
+                                    className="w-full px-2 sm:px-3 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none text-sm"
+                                />
+                            </div>
                         </div>
-                    </div>
+                    </fieldset>
                 </div>
 
                 <Button
                     variant="primary"
-                    icon={<GitCompare size={18} />}
+                    icon={<GitCompare size={16} aria-hidden="true" />}
                     onClick={() => fetchWithCustomDates()}
                     loading={comparisonLoading}
-                    className="mt-4 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700"
+                    className="mt-4 w-full sm:w-auto bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700"
+                    ariaLabel="Ejecutar comparación de períodos personalizada"
                 >
-                    Comparar Períodos
+                    <span className="hidden sm:inline">Comparar Períodos</span>
+                    <span className="sm:hidden">Comparar</span>
                 </Button>
             </div>
 
             {/* Resultados */}
             {comparisonLoading ? (
-                <div className="text-center py-8">
+                <div 
+                    className="text-center py-6 sm:py-8" 
+                    role="status" 
+                    aria-label="Cargando comparación"
+                >
                     <LoadingSpinner size="lg" text="Cargando comparación..." />
                 </div>
             ) : comparisonData ? (
@@ -148,7 +213,7 @@ const PeriodComparator = ({
                     getTrendColor={getTrendColor}
                 />
             ) : null}
-        </div>
+        </section>
     );
 };
 
@@ -164,17 +229,27 @@ const ComparisonResults = ({ data, getTrendIcon, getTrendColor }) => {
     };
 
     return (
-        <div className="bg-white rounded-xl p-5 border border-gray-200">
+        <div 
+            className="bg-white rounded-xl p-4 sm:p-5 border border-gray-200"
+            role="region"
+            aria-label="Resultados de la comparación"
+        >
             {/* Resumen */}
-            <div className={`rounded-xl p-4 mb-6 border-2 ${getOverallTrendStyle()}`}>
-                <h3 className="text-lg font-bold flex items-center gap-2">
-                    {data.overall_trend === 'no_data' 
-                        ? '⚠️' 
-                        : getTrendIcon(data.overall_trend === 'improved' ? 'down' : data.overall_trend === 'worsened' ? 'up' : 'stable')}
-                    {data.summary}
+            <div 
+                className={`rounded-xl p-3 sm:p-4 mb-4 sm:mb-6 border-2 ${getOverallTrendStyle()}`}
+                role="status"
+                aria-live="polite"
+            >
+                <h3 className="text-base sm:text-lg font-bold flex items-center gap-2 flex-wrap">
+                    <span aria-hidden="true">
+                        {data.overall_trend === 'no_data' 
+                            ? '⚠️' 
+                            : getTrendIcon(data.overall_trend === 'improved' ? 'down' : data.overall_trend === 'worsened' ? 'up' : 'stable')}
+                    </span>
+                    <span>{data.summary}</span>
                 </h3>
                 {data.overall_trend === 'no_data' && (
-                    <p className="text-sm text-amber-700 mt-2">
+                    <p className="text-xs sm:text-sm text-amber-700 mt-2">
                         💡 Tip: Intenta seleccionar fechas más recientes o usa los presets rápidos.
                     </p>
                 )}
@@ -182,7 +257,11 @@ const ComparisonResults = ({ data, getTrendIcon, getTrendColor }) => {
 
             {/* Comparación detallada */}
             {data.comparison && Object.keys(data.comparison).length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div 
+                    className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mb-4 sm:mb-6"
+                    role="list"
+                    aria-label="Comparación detallada por contaminante"
+                >
                     {Object.entries(data.comparison).map(([pollutant, pollutantData]) => (
                         <PollutantComparison 
                             key={pollutant}
@@ -194,9 +273,9 @@ const ComparisonResults = ({ data, getTrendIcon, getTrendColor }) => {
                     ))}
                 </div>
             ) : (
-                <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-xl">
-                    <p className="text-lg">No hay suficientes datos para comparar.</p>
-                    <p className="text-sm mt-2">Intenta seleccionar un rango de fechas con datos disponibles.</p>
+                <div className="text-center py-6 sm:py-8 text-gray-500 bg-gray-50 rounded-xl">
+                    <p className="text-base sm:text-lg">No hay suficientes datos para comparar.</p>
+                    <p className="text-xs sm:text-sm mt-2">Intenta seleccionar un rango de fechas con datos disponibles.</p>
                 </div>
             )}
 
@@ -211,68 +290,87 @@ const ComparisonResults = ({ data, getTrendIcon, getTrendColor }) => {
 /**
  * Comparación de un contaminante
  */
-const PollutantComparison = ({ pollutant, data, getTrendIcon, getTrendColor }) => (
-    <div className="bg-gray-50 rounded-xl p-4 hover:shadow-md transition-shadow">
-        <h4 className="font-bold text-lg mb-3 text-gray-800">{pollutant.toUpperCase()}</h4>
-        
-        <div className="space-y-2">
-            <div className="flex justify-between items-center p-2 bg-blue-50 rounded-lg">
-                <span className="text-sm text-gray-600">Período 1:</span>
-                <span className="font-bold text-blue-700">{data.period1_avg} µg/m³</span>
-            </div>
+const PollutantComparison = ({ pollutant, data, getTrendIcon, getTrendColor }) => {
+    const trendDescription = data.trend === 'up' 
+        ? `aumentó ${data.change_percent}%` 
+        : data.trend === 'down' 
+            ? `disminuyó ${Math.abs(data.change_percent)}%` 
+            : 'se mantuvo estable';
+
+    return (
+        <article 
+            className="bg-gray-50 rounded-xl p-3 sm:p-4 hover:shadow-md transition-shadow"
+            role="listitem"
+            aria-label={`${pollutant.toUpperCase()}: ${trendDescription}`}
+        >
+            <h4 className="font-bold text-base sm:text-lg mb-2 sm:mb-3 text-gray-800">
+                {pollutant.toUpperCase()}
+            </h4>
             
-            <div className="flex justify-between items-center p-2 bg-purple-50 rounded-lg">
-                <span className="text-sm text-gray-600">Período 2:</span>
-                <span className="font-bold text-purple-700">{data.period2_avg} µg/m³</span>
-            </div>
-            
-            <div className={`flex justify-between items-center p-2 rounded-lg ${
-                data.trend === 'down' ? 'bg-green-100' : data.trend === 'up' ? 'bg-red-100' : 'bg-gray-100'
-            }`}>
-                <span className="text-sm">Cambio:</span>
-                <span className={`font-bold ${getTrendColor(data.trend)}`}>
-                    {getTrendIcon(data.trend)} {data.change_percent > 0 ? '+' : ''}{data.change_percent}%
-                </span>
-            </div>
-        </div>
-    </div>
-);
+            <dl className="space-y-2">
+                <div className="flex justify-between items-center p-2 bg-blue-50 rounded-lg">
+                    <dt className="text-xs sm:text-sm text-gray-600">Período 1:</dt>
+                    <dd className="font-bold text-blue-700 text-sm">{data.period1_avg} µg/m³</dd>
+                </div>
+                
+                <div className="flex justify-between items-center p-2 bg-purple-50 rounded-lg">
+                    <dt className="text-xs sm:text-sm text-gray-600">Período 2:</dt>
+                    <dd className="font-bold text-purple-700 text-sm">{data.period2_avg} µg/m³</dd>
+                </div>
+                
+                <div className={`flex justify-between items-center p-2 rounded-lg ${
+                    data.trend === 'down' ? 'bg-green-100' : data.trend === 'up' ? 'bg-red-100' : 'bg-gray-100'
+                }`}>
+                    <dt className="text-xs sm:text-sm">Cambio:</dt>
+                    <dd className={`font-bold text-sm ${getTrendColor(data.trend)}`}>
+                        <span aria-hidden="true">{getTrendIcon(data.trend)}</span> 
+                        {data.change_percent > 0 ? '+' : ''}{data.change_percent}%
+                    </dd>
+                </div>
+            </dl>
+        </article>
+    );
+};
 
 /**
  * Información de los períodos comparados
  */
 const PeriodInfo = ({ period1, period2 }) => (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="bg-blue-50 rounded-xl p-4 border border-blue-100">
-            <h4 className="font-semibold text-blue-800 mb-2 flex items-center gap-2">
-                <span className="text-lg">📊</span> Período 1
+    <div 
+        className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4"
+        role="region"
+        aria-label="Detalles de los períodos comparados"
+    >
+        <div className="bg-blue-50 rounded-xl p-3 sm:p-4 border border-blue-100">
+            <h4 className="font-semibold text-blue-800 mb-2 flex items-center gap-2 text-sm sm:text-base">
+                <span aria-hidden="true">📊</span> Período 1
             </h4>
-            <p className="text-sm text-gray-600">
+            <p className="text-xs sm:text-sm text-gray-600">
                 {period1.start} → {period1.end}
             </p>
-            <p className="text-sm text-gray-500 mt-1">
-                <strong>{period1.readings_count || 0}</strong> lecturas registradas
+            <p className="text-xs sm:text-sm text-gray-500 mt-1">
+                <strong>{period1.readings_count || 0}</strong> lecturas
             </p>
             {period1.data_source && (
                 <p className={`text-xs mt-1 ${period1.data_source === 'openmeteo' ? 'text-green-600' : 'text-blue-600'}`}>
-                    📡 Fuente: {period1.data_source === 'openmeteo' ? 'Open Meteo API' : 'Base de datos local'}
+                    📡 {period1.data_source === 'openmeteo' ? 'Open Meteo API' : 'BD local'}
                 </p>
             )}
         </div>
         
-        <div className="bg-purple-50 rounded-xl p-4 border border-purple-100">
-            <h4 className="font-semibold text-purple-800 mb-2 flex items-center gap-2">
-                <span className="text-lg">📊</span> Período 2
+        <div className="bg-purple-50 rounded-xl p-3 sm:p-4 border border-purple-100">
+            <h4 className="font-semibold text-purple-800 mb-2 flex items-center gap-2 text-sm sm:text-base">
+                <span aria-hidden="true">📊</span> Período 2
             </h4>
-            <p className="text-sm text-gray-600">
+            <p className="text-xs sm:text-sm text-gray-600">
                 {period2.start} → {period2.end}
             </p>
-            <p className="text-sm text-gray-500 mt-1">
-                <strong>{period2.readings_count || 0}</strong> lecturas registradas
+            <p className="text-xs sm:text-sm text-gray-500 mt-1">
+                <strong>{period2.readings_count || 0}</strong> lecturas
             </p>
             {period2.data_source && (
                 <p className={`text-xs mt-1 ${period2.data_source === 'openmeteo' ? 'text-green-600' : 'text-blue-600'}`}>
-                    📡 Fuente: {period2.data_source === 'openmeteo' ? 'Open Meteo API' : 'Base de datos local'}
+                    📡 {period2.data_source === 'openmeteo' ? 'Open Meteo API' : 'BD local'}
                 </p>
             )}
         </div>

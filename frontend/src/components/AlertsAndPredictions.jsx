@@ -87,7 +87,11 @@ const AlertsAndPredictions = ({ isVisible = true }) => {
             </div>
 
             {/* Contenido del tab activo */}
-            <div className="bg-white rounded-b-xl rounded-tr-xl shadow-lg p-6 border border-gray-200 border-t-0">
+            <div 
+                className="bg-white rounded-b-xl rounded-tr-xl shadow-lg p-3 sm:p-4 md:p-6 border border-gray-200 border-t-0"
+                role="tabpanel"
+                aria-label={`Panel de ${TABS.find(t => t.id === activeTab)?.label || 'contenido'}`}
+            >
                 {activeTab === 'current' && (
                     <TabContent>
                         <CurrentStatusTab 
