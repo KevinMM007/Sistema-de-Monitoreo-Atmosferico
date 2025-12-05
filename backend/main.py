@@ -31,6 +31,7 @@ from alert_system import AlertSystem
 from historical_routes import router as historical_router
 from osm_analyzer import osm_analyzer
 from osm_cache import osm_cache
+from alert_scheduler import alert_scheduler
 
 # Inicializar colectores
 traffic_collector = TomTomTrafficCollector()
@@ -174,22 +175,36 @@ app.include_router(historical_router, prefix="/api")
 # ============================================================================
 openmeteo_collector = OpenMeteoCollector()
 
-# Cargar suscripciones al iniciar
+# Cargar suscripciones e iniciar scheduler al iniciar
 @app.on_event("startup")
-async def load_subscriptions():
-    """Carga suscripciones activas al iniciar el servidor"""
+async def startup_event():
+    """Carga suscripciones e inicia el scheduler de alertas"""
     try:
         db = next(get_db())
         active_subscriptions = db.query(models.AlertSubscription).filter(
             models.AlertSubscription.is_active == True
         ).all()
-        
+
         for sub in active_subscriptions:
             alert_system.subscribe_email(sub.email)
-        
+
         print(f"✓ Cargadas {len(active_subscriptions)} suscripciones activas")
+
+        # Iniciar el scheduler de alertas automáticas
+        alert_scheduler.start({
+            'openmeteo_collector': openmeteo_collector,
+            'alert_system': alert_system,
+            'get_db': get_db
+        })
+
     except Exception as e:
-        print(f"⚠️ Error cargando suscripciones: {str(e)}")
+        print(f"⚠️ Error en startup: {str(e)}")
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Detiene el scheduler al apagar el servidor"""
+    alert_scheduler.stop()
 
 # ============================================================================
 # ENDPOINTS DE ESTADO Y DIAGNÓSTICO
@@ -210,7 +225,7 @@ async def health_check():
 async def get_rate_limit_statistics():
     """
     Obtiene estadísticas del sistema de rate limiting.
-    
+
     Útil para monitorear el uso de la API.
     """
     stats = get_rate_limit_stats()
@@ -218,6 +233,17 @@ async def get_rate_limit_statistics():
     cleaned = cleanup_expired_entries()
     stats["entries_cleaned"] = cleaned
     return stats
+
+
+@app.get("/api/scheduler/status", tags=["🏥 Estado del Sistema"], summary="Estado del scheduler de alertas")
+async def get_scheduler_status():
+    """
+    Obtiene el estado del scheduler de verificación automática de alertas.
+
+    El scheduler verifica la calidad del aire cada 30 minutos y envía
+    alertas por email cuando PM2.5 supera 35.4 µg/m³.
+    """
+    return alert_scheduler.get_status()
 
 
 @app.get("/api/test-db", tags=["🏥 Estado del Sistema"], summary="Probar conexión a base de datos")
