@@ -3,18 +3,18 @@ uvicorn==0.34.0
 gunicorn==21.2.0
 sqlalchemy==2.0.23
 psycopg2-binary==2.9.9
-pandas==2.2.3
-numpy==2.1.2
+pandas==2.1.4
+numpy==1.26.4
 scikit-learn==1.3.2
 joblib==1.3.2
 requests==2.32.3
 python-dotenv==1.0.1
-matplotlib==3.9.2
+matplotlib==3.8.2
 seaborn==0.13.0
 plotly==5.24.1
 aiohttp==3.9.5
 
-# Testing
+# Testing (opcional en producción)
 pytest==8.0.0
 pytest-asyncio==0.23.0
 httpx==0.27.0
