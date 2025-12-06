@@ -37,6 +37,8 @@ class OpenMeteoCollector:
     
     Esta clase obtiene datos REALES de contaminantes atmosféricos para
     las coordenadas de Xalapa, Veracruz, México.
+    
+    🆕 MEJORA: Sistema de caché para evitar inconsistencias entre endpoints
     """
     
     def __init__(self):
@@ -56,6 +58,11 @@ class OpenMeteoCollector:
         self.consecutive_failures = 0
         self.total_successful_fetches = 0
         self.total_failed_fetches = 0
+        
+        # 🆕 Sistema de caché para consistencia entre endpoints
+        self._cache_data = None
+        self._cache_timestamp = None
+        self._cache_duration = timedelta(minutes=5)  # Caché válido por 5 minutos
 
     def get_status(self):
         """Retorna el estado actual del colector para diagnóstico"""
@@ -72,8 +79,31 @@ class OpenMeteoCollector:
             "consecutive_failures": self.consecutive_failures,
             "total_successful_fetches": self.total_successful_fetches,
             "total_failed_fetches": self.total_failed_fetches,
-            "is_operational": self.consecutive_failures < 5
+            "is_operational": self.consecutive_failures < 5,
+            # 🆕 Info de caché
+            "cache_active": self._is_cache_valid(),
+            "cache_age_seconds": (datetime.now() - self._cache_timestamp).total_seconds() if self._cache_timestamp else None
         }
+
+    def _is_cache_valid(self):
+        """Verifica si el caché es válido (no ha expirado)"""
+        if self._cache_data is None or self._cache_timestamp is None:
+            return False
+        return (datetime.now() - self._cache_timestamp) < self._cache_duration
+
+    def _get_cached_data(self):
+        """Obtiene datos del caché si es válido"""
+        if self._is_cache_valid():
+            cache_age = (datetime.now() - self._cache_timestamp).total_seconds()
+            print(f"  📦 Usando datos de caché (edad: {cache_age:.1f}s)")
+            return self._cache_data
+        return None
+
+    def _set_cache(self, data):
+        """Guarda datos en el caché"""
+        self._cache_data = data
+        self._cache_timestamp = datetime.now()
+        print(f"  💾 Datos guardados en caché (válido por {self._cache_duration.total_seconds()}s)")
 
     async def test_connection(self):
         """
@@ -110,6 +140,10 @@ class OpenMeteoCollector:
         """
         Obtiene datos de calidad del aire de Open Meteo.
         
+        🆕 MEJORA: Ahora usa caché para garantizar consistencia entre endpoints.
+        Todos los endpoints que llamen este método durante la ventana de caché
+        recibirán exactamente los mismos datos.
+        
         Fuente: Open Meteo Air Quality API
         Documentación: https://open-meteo.com/en/docs/air-quality-api
         
@@ -121,6 +155,11 @@ class OpenMeteoCollector:
                   con is_real_data=True si son datos de la API, o is_real_data=False
                   si son datos de respaldo.
         """
+        # 🆕 Primero verificar caché
+        cached = self._get_cached_data()
+        if cached is not None:
+            return cached
+        
         self.last_fetch_time = datetime.now()
         
         try:
@@ -164,6 +203,9 @@ class OpenMeteoCollector:
                     print(f"  ✅ Datos REALES obtenidos: {len(processed)} registros")
                     print(f"  📊 Rango de timestamps: {processed[0]['timestamp']} a {processed[-1]['timestamp']}")
                     print(f"{'='*60}\n")
+                    
+                    # 🆕 Guardar en caché
+                    self._set_cache(processed)
                     
                     return processed
                 else:
