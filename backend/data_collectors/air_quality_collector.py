@@ -1,6 +1,27 @@
 import requests
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import random
+
+# ============================================================================
+# 🆕 FIX: Zona horaria de México para consistencia entre servidores
+# ============================================================================
+# El problema: Render usa UTC, tu PC usa hora de México.
+# Open-Meteo devuelve timestamps en hora de México.
+# Solución: Siempre usar hora de México para comparaciones.
+# ============================================================================
+MEXICO_UTC_OFFSET = -6  # México Central Standard Time (UTC-6)
+
+def get_mexico_time():
+    """
+    Obtiene la hora actual en zona horaria de México (UTC-6).
+    Esto garantiza consistencia entre servidores locales y en la nube.
+    """
+    utc_now = datetime.now(timezone.utc)
+    mexico_offset = timezone(timedelta(hours=MEXICO_UTC_OFFSET))
+    mexico_now = utc_now.astimezone(mexico_offset)
+    # Retornar como datetime naive para comparar con timestamps de Open-Meteo
+    return mexico_now.replace(tzinfo=None)
+
 
 def get_fallback_data(limit: int = 24):
     """
@@ -8,7 +29,7 @@ def get_fallback_data(limit: int = 24):
     IMPORTANTE: Estos datos NO son reales y están claramente marcados.
     Solo se usan cuando la API de Open Meteo no responde.
     """
-    now = datetime.now()
+    now = get_mexico_time()
     return [
         {
             "timestamp": (now - timedelta(hours=i)).isoformat(),
@@ -38,7 +59,9 @@ class OpenMeteoCollector:
     Esta clase obtiene datos REALES de contaminantes atmosféricos para
     las coordenadas de Xalapa, Veracruz, México.
     
-    🆕 MEJORA: Sistema de caché para evitar inconsistencias entre endpoints
+    🆕 MEJORAS:
+    - Sistema de caché para evitar inconsistencias entre endpoints
+    - Zona horaria de México fija para consistencia entre servidores
     """
     
     def __init__(self):
@@ -66,6 +89,7 @@ class OpenMeteoCollector:
 
     def get_status(self):
         """Retorna el estado actual del colector para diagnóstico"""
+        mexico_now = get_mexico_time()
         return {
             "api_url": self.base_url,
             "coordinates": {
@@ -80,21 +104,23 @@ class OpenMeteoCollector:
             "total_successful_fetches": self.total_successful_fetches,
             "total_failed_fetches": self.total_failed_fetches,
             "is_operational": self.consecutive_failures < 5,
-            # 🆕 Info de caché
+            # 🆕 Info de caché y zona horaria
             "cache_active": self._is_cache_valid(),
-            "cache_age_seconds": (datetime.now() - self._cache_timestamp).total_seconds() if self._cache_timestamp else None
+            "cache_age_seconds": (get_mexico_time() - self._cache_timestamp).total_seconds() if self._cache_timestamp else None,
+            "server_time_mexico": mexico_now.isoformat(),
+            "timezone": "America/Mexico_City (UTC-6)"
         }
 
     def _is_cache_valid(self):
         """Verifica si el caché es válido (no ha expirado)"""
         if self._cache_data is None or self._cache_timestamp is None:
             return False
-        return (datetime.now() - self._cache_timestamp) < self._cache_duration
+        return (get_mexico_time() - self._cache_timestamp) < self._cache_duration
 
     def _get_cached_data(self):
         """Obtiene datos del caché si es válido"""
         if self._is_cache_valid():
-            cache_age = (datetime.now() - self._cache_timestamp).total_seconds()
+            cache_age = (get_mexico_time() - self._cache_timestamp).total_seconds()
             print(f"  📦 Usando datos de caché (edad: {cache_age:.1f}s)")
             return self._cache_data
         return None
@@ -102,7 +128,7 @@ class OpenMeteoCollector:
     def _set_cache(self, data):
         """Guarda datos en el caché"""
         self._cache_data = data
-        self._cache_timestamp = datetime.now()
+        self._cache_timestamp = get_mexico_time()
         print(f"  💾 Datos guardados en caché (válido por {self._cache_duration.total_seconds()}s)")
 
     async def test_connection(self):
@@ -126,23 +152,23 @@ class OpenMeteoCollector:
                 "status_code": response.status_code,
                 "api_url": self.base_url,
                 "response_time_ms": response.elapsed.total_seconds() * 1000,
-                "timestamp": datetime.now().isoformat(),
+                "timestamp": get_mexico_time().isoformat(),
                 "sample_data": response.json() if response.status_code == 200 else None
             }
         except Exception as e:
             return {
                 "success": False,
                 "error": str(e),
-                "timestamp": datetime.now().isoformat()
+                "timestamp": get_mexico_time().isoformat()
             }
 
     async def get_air_quality_data(self):
         """
         Obtiene datos de calidad del aire de Open Meteo.
         
-        🆕 MEJORA: Ahora usa caché para garantizar consistencia entre endpoints.
-        Todos los endpoints que llamen este método durante la ventana de caché
-        recibirán exactamente los mismos datos.
+        🆕 MEJORAS:
+        - Usa caché para garantizar consistencia entre endpoints
+        - Usa zona horaria de México para filtrar datos correctamente
         
         Fuente: Open Meteo Air Quality API
         Documentación: https://open-meteo.com/en/docs/air-quality-api
@@ -151,20 +177,20 @@ class OpenMeteoCollector:
         de la Unión Europea, que es uno de los modelos más precisos disponibles.
         
         Returns:
-            list: Lista de diccionarios con datos de contaminantes, cada uno marcado
-                  con is_real_data=True si son datos de la API, o is_real_data=False
-                  si son datos de respaldo.
+            list: Lista de diccionarios con datos de contaminantes
         """
         # 🆕 Primero verificar caché
         cached = self._get_cached_data()
         if cached is not None:
             return cached
         
-        self.last_fetch_time = datetime.now()
+        # 🆕 Usar hora de México
+        mexico_now = get_mexico_time()
+        self.last_fetch_time = mexico_now
         
         try:
             # Calcular fechas para obtener datos de los últimos 2 días completos
-            end_time = datetime.now()
+            end_time = mexico_now
             start_time = end_time - timedelta(days=2)
 
             # Construir parámetros de la petición
@@ -183,7 +209,7 @@ class OpenMeteoCollector:
             print(f"  URL: {self.base_url}")
             print(f"  Coordenadas: {self.latitude}, {self.longitude} (Xalapa, Veracruz)")
             print(f"  Rango: {params['start_date']} a {params['end_date']}")
-            print(f"  Hora de solicitud: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+            print(f"  Hora México: {mexico_now.strftime('%Y-%m-%d %H:%M:%S')}")
             
             response = requests.get(self.base_url, params=params, timeout=15)
             self.last_api_response_code = response.status_code
@@ -272,7 +298,7 @@ class OpenMeteoCollector:
                     "source": "open_meteo_weather_api",
                     "source_url": self.weather_url,
                     "is_real_data": True,
-                    "fetch_timestamp": datetime.now().isoformat()
+                    "fetch_timestamp": get_mexico_time().isoformat()
                 }
             print(f"Error en la petición meteorológica: {response.status_code}")
             return None
@@ -283,6 +309,8 @@ class OpenMeteoCollector:
     def process_openmeteo_data(self, raw_data):
         """
         Procesa los datos recibidos de Open Meteo al formato esperado.
+        
+        🆕 FIX: Ahora usa hora de México para filtrar datos futuros correctamente.
         
         Mapeo de campos de Open Meteo:
         - pm2_5 → PM2.5 (μg/m³) - Partículas finas
@@ -307,8 +335,11 @@ class OpenMeteoCollector:
                 print(f"    Faltan campos en la respuesta: {missing_fields}")
                 return None
 
-            # Hora actual para filtrar datos futuros
-            now = datetime.now()
+            # 🆕 FIX: Usar hora de México para filtrar datos futuros
+            # Open-Meteo devuelve timestamps en hora de México (porque especificamos timezone)
+            # Debemos comparar con hora de México, no con hora del servidor
+            now_mexico = get_mexico_time()
+            print(f"    Hora México actual: {now_mexico.strftime('%Y-%m-%d %H:%M:%S')}")
             
             for i in range(len(times)):
                 try:
@@ -316,7 +347,8 @@ class OpenMeteoCollector:
                     timestamp = datetime.fromisoformat(timestamp_str)
                     
                     # Solo incluir datos del pasado (no futuros)
-                    if timestamp > now:
+                    # Comparamos timestamps de México con hora de México
+                    if timestamp > now_mexico:
                         continue
                     
                     # Obtener valores
@@ -354,8 +386,8 @@ class OpenMeteoCollector:
             # Ordenar por timestamp ascendente
             processed_data.sort(key=lambda x: x['timestamp'])
             
-            # Filtrar últimas 24 horas
-            cutoff_time = now - timedelta(hours=24)
+            # Filtrar últimas 24 horas (usando hora de México)
+            cutoff_time = now_mexico - timedelta(hours=24)
             recent_data = [
                 d for d in processed_data 
                 if datetime.fromisoformat(d['timestamp']) >= cutoff_time
@@ -363,6 +395,8 @@ class OpenMeteoCollector:
             
             print(f"    Registros procesados: {len(processed_data)}")
             print(f"    Registros últimas 24h: {len(recent_data)}")
+            if recent_data:
+                print(f"    Último registro: {recent_data[-1]['timestamp']} - PM2.5: {recent_data[-1]['pm25']}")
             
             if len(recent_data) < 12:
                 recent_data = processed_data[-24:] if len(processed_data) > 24 else processed_data
