@@ -58,6 +58,7 @@ const HistoricalDataDashboard = ({ isVisible = true }) => {
         loading,
         osmLoading,
         error,
+        infoMessage, // 🆕 Mensaje informativo del servidor
         fetchData,
         fetchOSMAnalysis,
         exportToCSV,
@@ -278,6 +279,17 @@ const HistoricalDataDashboard = ({ isVisible = true }) => {
                 >
                     <AlertCircle size={20} aria-hidden="true" className="flex-shrink-0" />
                     <span>{error}</span>
+                </div>
+            )}
+
+            {/* 🆕 Mensaje informativo (no es error) */}
+            {!error && infoMessage && (
+                <div 
+                    className="mb-3 sm:mb-4 p-3 sm:p-4 bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-2 text-blue-700 text-sm"
+                    role="status"
+                >
+                    <span className="text-lg" aria-hidden="true">ℹ️</span>
+                    <span>{infoMessage}</span>
                 </div>
             )}
 

@@ -2,7 +2,10 @@
  * Hook personalizado para datos históricos
  * Fase 4 - Optimización: Lógica reutilizable
  * 
- * CORREGIDO: Uso de useRef para valores estables y mejor manejo de dependencias
+ * 🆕 MEJORAS:
+ * - Mejor manejo de errores de red
+ * - Timeout en el frontend para evitar esperas largas
+ * - Mensajes de error más claros para el usuario
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -27,6 +30,36 @@ const getPastDate = (daysAgo) => {
 };
 
 /**
+ * Traduce errores técnicos a mensajes amigables para el usuario
+ */
+const getErrorMessage = (error) => {
+    const errorStr = error?.message || String(error);
+    
+    // Errores de red/CORS
+    if (errorStr.includes('Failed to fetch') || errorStr.includes('NetworkError')) {
+        return 'Error de conexión con el servidor. Por favor, intenta de nuevo en unos segundos.';
+    }
+    
+    // Errores de timeout
+    if (errorStr.includes('timeout') || errorStr.includes('Timeout')) {
+        return 'La consulta tardó demasiado. Intenta con un rango de fechas más pequeño.';
+    }
+    
+    // Errores 502/503
+    if (errorStr.includes('502') || errorStr.includes('503') || errorStr.includes('Bad Gateway')) {
+        return 'El servidor está temporalmente ocupado. Intenta de nuevo en unos segundos.';
+    }
+    
+    // Errores de rango de fechas
+    if (errorStr.includes('rango máximo') || errorStr.includes('1 año')) {
+        return 'El rango máximo permitido es de 1 año. Por favor, reduce el rango de fechas.';
+    }
+    
+    // Error genérico
+    return errorStr || 'Error al obtener datos históricos';
+};
+
+/**
  * Hook para obtener y gestionar datos históricos
  */
 const useHistoricalData = (options = {}) => {
@@ -41,6 +74,7 @@ const useHistoricalData = (options = {}) => {
     const isMounted = useRef(true);
     const latestDateRange = useRef({ start: initialStart, end: initialEnd });
     const latestTimeScale = useRef(initialScale);
+    const abortControllerRef = useRef(null);
 
     // Estados de filtros
     const [dateRange, setDateRangeState] = useState({
@@ -63,6 +97,9 @@ const useHistoricalData = (options = {}) => {
     // Estados de error
     const [error, setError] = useState(null);
     const [osmError, setOsmError] = useState(null);
+    
+    // 🆕 Mensaje informativo (no es error, pero es información útil)
+    const [infoMessage, setInfoMessage] = useState(null);
 
     // Metadatos
     const [metadata, setMetadata] = useState(null);
@@ -81,6 +118,10 @@ const useHistoricalData = (options = {}) => {
         isMounted.current = true;
         return () => {
             isMounted.current = false;
+            // Cancelar request pendiente
+            if (abortControllerRef.current) {
+                abortControllerRef.current.abort();
+            }
         };
     }, []);
 
@@ -143,7 +184,7 @@ const useHistoricalData = (options = {}) => {
 
     /**
      * Obtiene datos históricos
-     * IMPORTANTE: Usa los refs para obtener los valores más actuales
+     * 🆕 MEJORADO: Mejor manejo de errores y timeout
      */
     const fetchData = useCallback(async (customRange = null, customScale = null) => {
         // Usar refs para obtener los valores más actuales, o los personalizados si se proporcionan
@@ -172,35 +213,60 @@ const useHistoricalData = (options = {}) => {
             return null;
         }
 
+        // Cancelar request anterior si existe
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+        }
+
         setLoading(true);
         setError(null);
+        setInfoMessage(null);
 
         try {
             console.log(`🔍 [useHistoricalData] Llamando API: ${rangeToUse.start} a ${rangeToUse.end}, escala: ${scaleToUse}`);
             
-            const response = await airQualityService.getHistorical(
+            // 🆕 Agregar timeout de 25 segundos para evitar esperas largas
+            const timeoutPromise = new Promise((_, reject) => {
+                setTimeout(() => reject(new Error('timeout')), 25000);
+            });
+            
+            const fetchPromise = airQualityService.getHistorical(
                 rangeToUse.start,
                 rangeToUse.end,
                 scaleToUse
             );
+            
+            const response = await Promise.race([fetchPromise, timeoutPromise]);
 
             console.log('✅ [useHistoricalData] Respuesta:', {
                 dataLength: response?.data?.length || 0,
                 hasStatistics: !!response?.statistics,
-                metadata: response?.metadata
+                metadata: response?.metadata,
+                message: response?.message
             });
 
             if (isMounted.current) {
                 setData(response?.data || []);
                 setStatistics(response?.statistics || null);
                 setMetadata(response?.metadata || null);
+                
+                // 🆕 Mostrar mensaje informativo si viene del servidor
+                if (response?.message) {
+                    setInfoMessage(response.message);
+                } else if (response?.data?.length === 0) {
+                    setInfoMessage('No hay datos disponibles para este rango de fechas. Los datos históricos se acumulan con el uso del sistema.');
+                } else {
+                    setInfoMessage(null);
+                }
             }
 
             return response;
         } catch (err) {
             console.error('❌ [useHistoricalData] Error:', err);
             if (isMounted.current) {
-                setError(err.message || 'Error al obtener datos históricos');
+                // 🆕 Usar función de traducción de errores
+                const friendlyError = getErrorMessage(err);
+                setError(friendlyError);
                 setData([]);
                 setStatistics(null);
             }
@@ -231,7 +297,7 @@ const useHistoricalData = (options = {}) => {
         } catch (err) {
             console.error('❌ [useHistoricalData] Error OSM:', err);
             if (isMounted.current) {
-                setOsmError(err.message);
+                setOsmError(getErrorMessage(err));
             }
             return null;
         } finally {
@@ -349,6 +415,13 @@ const useHistoricalData = (options = {}) => {
         console.log('🔄 [useHistoricalData] Refrescando todos los datos...');
         await Promise.all([fetchData(), fetchOSMAnalysis()]);
     }, [fetchData, fetchOSMAnalysis]);
+    
+    /**
+     * 🆕 Limpia el error actual
+     */
+    const clearError = useCallback(() => {
+        setError(null);
+    }, []);
 
     // Efecto para cargar datos iniciales si autoFetch está habilitado
     useEffect(() => {
@@ -400,6 +473,10 @@ const useHistoricalData = (options = {}) => {
         error,
         osmError,
         hasError,
+        clearError,
+        
+        // 🆕 Mensaje informativo
+        infoMessage,
         
         // Validación
         validateDateRange,
