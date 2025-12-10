@@ -6,6 +6,7 @@
  * - Menú hamburguesa para dispositivos móviles
  * - Accesibilidad mejorada (aria-labels, roles, focus states)
  * - Navegación por teclado
+ * - FIX: Usa servicios de API centralizados para producción
  */
 
 import React, { useState, useEffect, useCallback } from "react";
@@ -13,6 +14,9 @@ import AirQualityDashboard, { generateReport } from "./components/AirQualityDash
 import AlertsAndPredictions from "./components/AlertsAndPredictions.jsx";
 import HistoricalDataDashboard from "./components/HistoricalDataDashboard.jsx";
 import logoRevive from "./assets/logo_revive.png";
+
+// 🆕 FIX: Importar servicios de API para usar URLs correctas en producción
+import { airQualityService, weatherService } from "./services/api";
 
 function App() {
   const [activeView, setActiveView] = useState('dashboard');
@@ -51,39 +55,43 @@ function App() {
     return () => document.removeEventListener('keydown', handleEscape);
   }, [isMobileMenuOpen]);
 
-  // Efecto para cargar datos necesarios para el reporte
+  // 🆕 FIX: Usar servicios de API centralizados en lugar de fetch directo
+  // Esto asegura que se usen las URLs correctas tanto en desarrollo como producción
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const airResponse = await fetch('/api/air-quality');
-        if (airResponse.ok) {
-          const airData = await airResponse.json();
+        // Usar servicio de API para calidad del aire
+        const airData = await airQualityService.getLatest();
+        if (airData && Array.isArray(airData)) {
           const now = new Date();
           const filteredData = airData.filter(item => {
             const itemDate = new Date(item.timestamp);
             return itemDate <= now;
           });
           setAirQualityData(filteredData);
+          console.log('✅ Datos de calidad del aire cargados para reporte:', filteredData.length);
         }
 
-        const weatherResponse = await fetch('/api/weather');
-        if (weatherResponse.ok) {
-          const weatherData = await weatherResponse.json();
-          setWeatherData(weatherData);
+        // Usar servicio de API para clima
+        const weather = await weatherService.getCurrent();
+        if (weather) {
+          setWeatherData(weather);
+          console.log('✅ Datos meteorológicos cargados para reporte');
         }
         
-        const zoneResponse = await fetch('/api/air-quality/by-zone');
-        if (zoneResponse.ok) {
-          const data = await zoneResponse.json();
-          setZoneData(data);
+        // Usar servicio de API para datos por zona
+        const zones = await airQualityService.getByZone();
+        if (zones) {
+          setZoneData(zones);
+          console.log('✅ Datos por zona cargados para reporte:', zones.zones?.length || 0, 'zonas');
         }
       } catch (error) {
-        console.error('Error fetching data for report:', error);
+        console.error('❌ Error fetching data for report:', error);
       }
     };
 
     fetchData();
-    const interval = setInterval(fetchData, 300000);
+    const interval = setInterval(fetchData, 300000); // Actualizar cada 5 minutos
     return () => clearInterval(interval);
   }, []);
 
