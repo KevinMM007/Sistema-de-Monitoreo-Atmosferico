@@ -69,12 +69,10 @@ async def get_historical_data(
                     
                     # Usar datos de API si son más completos
                     if len(api_data) > len(local_data):
-                        # Guardar en background (no bloquea la respuesta)
-                        asyncio.create_task(
-                            store_historical_data_async(db, api_data, start_date, end_date)
-                        )
+                        # NOTA: No guardamos en background para evitar problemas de conexiones
+                        # Los datos se guardarán la próxima vez que se consulte un rango pequeño
                         
-                        # Devolver datos de API
+                        # Devolver datos de API directamente
                         statistics = calculate_statistics(api_data)
                         return {
                             "data": api_data,
