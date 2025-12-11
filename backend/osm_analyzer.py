@@ -1,3 +1,25 @@
+"""
+============================================================================
+Sistema de Monitoreo de Calidad del Aire - Xalapa, Veracruz
+============================================================================
+
+ARCHIVO: osm_analyzer.py
+PROPÓSITO: Análisis de infraestructura vial usando OpenStreetMap
+
+FUNCIONALIDADES:
+    - Consulta datos de OpenStreetMap vía Overpass API
+    - Analiza densidad de vías por zona
+    - Calcula factores de contaminación basados en infraestructura
+    - Considera tipos de vías (autopistas, avenidas, residenciales)
+
+ZONAS ANALIZADAS:
+    - Centro, Norte, Sur, Este, Oeste de Xalapa
+
+AUTOR: Kevin Morales
+VERSIÓN: 2.1.0
+============================================================================
+"""
+
 import requests
 import json
 from typing import Dict, List, Tuple

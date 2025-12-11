@@ -1,7 +1,33 @@
+"""
+============================================================================
+Sistema de Monitoreo de Calidad del Aire - Xalapa, Veracruz
+============================================================================
+
+ARCHIVO: models.py
+PROPÓSITO: Definición de modelos de base de datos (SQLAlchemy ORM)
+
+MODELOS DEFINIDOS:
+    - AirQualityReading  : Lecturas de contaminantes atmosféricos
+    - TrafficReading     : Datos de congestión vehicular
+    - QuadrantStats      : Estadísticas por zona geográfica
+    - Prediction         : Predicciones de calidad del aire
+    - AlertSubscription  : Suscripciones de alertas por email
+    - AlertHistory       : Historial de alertas enviadas
+
+NOTA:
+    Los modelos usan PostgreSQL en producción (Supabase) y pueden
+    usar SQLite en desarrollo local si se configura.
+
+AUTOR: Kevin Morales
+VERSIÓN: 2.1.0
+============================================================================
+"""
+
 from sqlalchemy import Column, Integer, Float, String, DateTime, JSON, ForeignKey, Boolean
 from sqlalchemy.orm import relationship
 from database import Base
 from datetime import datetime
+
 
 class AirQualityReading(Base):
     __tablename__ = "air_quality_readings"

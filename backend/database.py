@@ -1,3 +1,29 @@
+"""
+============================================================================
+Sistema de Monitoreo de Calidad del Aire - Xalapa, Veracruz
+============================================================================
+
+ARCHIVO: database.py
+PROPÓSITO: Configuración de conexión a base de datos PostgreSQL
+
+DESCRIPCIÓN:
+    Configura la conexión a PostgreSQL usando SQLAlchemy. Detecta
+    automáticamente si está en entorno local o producción (Supabase)
+    y ajusta los parámetros del pool de conexiones.
+
+CONFIGURACIONES:
+    - Local: pool_size=5, max_overflow=10
+    - Producción: pool_size=2, max_overflow=3 (optimizado para Supabase free tier)
+
+VARIABLES DE ENTORNO:
+    - DATABASE_URL: URL de conexión a PostgreSQL
+    - ENVIRONMENT: 'production' o 'development'
+
+AUTOR: Kevin Morales
+VERSIÓN: 2.1.0
+============================================================================
+"""
+
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker

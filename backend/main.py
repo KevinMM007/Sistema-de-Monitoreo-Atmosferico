@@ -1,3 +1,35 @@
+"""
+============================================================================
+Sistema de Monitoreo de Calidad del Aire - Xalapa, Veracruz
+============================================================================
+
+ARCHIVO: main.py
+PROPÓSITO: Punto de entrada principal de la API REST (FastAPI)
+
+DESCRIPCIÓN:
+    Este archivo contiene la configuración principal del servidor FastAPI,
+    incluyendo todos los endpoints de la API, middlewares (CORS, rate limiting),
+    y la inicialización de servicios como el scheduler de alertas.
+
+ENDPOINTS PRINCIPALES:
+    - /health              : Estado del sistema
+    - /api/air-quality     : Datos de contaminantes atmosféricos
+    - /api/traffic         : Datos de tráfico en tiempo real
+    - /api/weather         : Condiciones meteorológicas
+    - /api/alerts/*        : Sistema de alertas por email
+    - /api/zones/*         : Análisis por zonas geográficas
+
+DEPENDENCIAS EXTERNAS:
+    - Open-Meteo CAMS      : Datos de contaminantes (satelitales)
+    - TomTom Traffic API   : Datos de congestión vehicular
+    - OpenStreetMap        : Análisis de infraestructura vial
+
+AUTOR: Kevin Morales
+VERSIÓN: 2.1.0
+ÚLTIMA ACTUALIZACIÓN: Diciembre 2025
+============================================================================
+"""
+
 import os
 from typing import Optional, List
 from datetime import datetime, date, time, timedelta

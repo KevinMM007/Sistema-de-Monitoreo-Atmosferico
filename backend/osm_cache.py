@@ -1,3 +1,24 @@
+"""
+============================================================================
+Sistema de Monitoreo de Calidad del Aire - Xalapa, Veracruz
+============================================================================
+
+ARCHIVO: osm_cache.py
+PROPÓSITO: Sistema de caché para datos de OpenStreetMap
+
+FUNCIONALIDADES:
+    - Almacena resultados de consultas OSM en archivo JSON
+    - Evita sobrecargar la API de Overpass
+    - Caché válido por 7 días (configurable)
+
+UBICACIÓN DEL CACHÉ:
+    - backend/cache/osm_zones_cache.json
+
+AUTOR: Kevin Morales
+VERSIÓN: 2.1.0
+============================================================================
+"""
+
 import json
 import os
 from datetime import datetime, timedelta
