@@ -1,13 +1,24 @@
 """
-Validador de Email Profesional
-==============================
-Validación robusta de direcciones de correo electrónico siguiendo RFC 5321/5322.
+============================================================================
+Sistema de Monitoreo de Calidad del Aire - Xalapa, Veracruz
+============================================================================
 
-Características:
-- Validación de formato básico
-- Verificación de dominios bloqueados (temporales/desechables)
-- Validación de longitud según estándares
-- Normalización de email
+ARCHIVO: custom_email_validator.py
+PROPÓSITO: Validación de direcciones de correo electrónico (RFC 5321/5322)
+
+FUNCIONALIDADES:
+    - Validación de formato según estándares RFC
+    - Bloqueo de dominios temporales/desechables
+    - Validación de longitud
+    - Normalización de emails
+    - Sugerencias de corrección
+
+DOMINIOS BLOQUEADOS:
+    - tempmail, mailinator, guerrillamail, yopmail, etc.
+
+AUTOR: Kevin Morales
+VERSIÓN: 2.1.0
+============================================================================
 """
 
 import re

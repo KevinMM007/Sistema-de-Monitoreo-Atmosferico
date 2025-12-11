@@ -1,3 +1,28 @@
+"""
+============================================================================
+Sistema de Monitoreo de Calidad del Aire - Xalapa, Veracruz
+============================================================================
+
+ARCHIVO: repositories/crud.py
+PROPÓSITO: Operaciones CRUD para acceso a base de datos
+
+REPOSITORIOS:
+    - AirQualityRepository : Lecturas de contaminantes
+    - TrafficRepository    : Datos de tráfico
+    - QuadrantStatsRepository : Estadísticas por zona
+    - PredictionRepository : Predicciones ML
+
+OPERACIONES PRINCIPALES:
+    - Obtener últimas lecturas
+    - Almacenar batch de lecturas
+    - Consultar por rango de fechas
+    - Calcular estadísticas
+
+AUTOR: Kevin Morales
+VERSIÓN: 2.1.0
+============================================================================
+"""
+
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from datetime import datetime, timedelta

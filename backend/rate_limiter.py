@@ -1,12 +1,22 @@
 """
-Rate Limiter para el Sistema de Monitoreo de Calidad del Aire
-=============================================================
-Implementa limitación de tasa de solicitudes para prevenir abuso de la API.
+============================================================================
+Sistema de Monitoreo de Calidad del Aire - Xalapa, Veracruz
+============================================================================
 
-Configuración:
-- Rate limit general: 100 requests/minuto por IP
-- Rate limit para suscripciones: 5 requests/minuto por IP
-- Rate limit para endpoints costosos: 30 requests/minuto por IP
+ARCHIVO: rate_limiter.py
+PROPÓSITO: Control de tasa de solicitudes para prevenir abuso de la API
+
+LÍMITES CONFIGURADOS:
+    - default  : 100 requests/minuto (endpoints generales)
+    - strict   : 5 requests/minuto (suscripciones)
+    - moderate : 30 requests/minuto (endpoints costosos)
+
+NOTA: Usa almacenamiento en memoria. Para producción escalable,
+      considerar Redis para persistencia entre reinicios.
+
+AUTOR: Kevin Morales
+VERSIÓN: 2.1.0
+============================================================================
 """
 
 import time

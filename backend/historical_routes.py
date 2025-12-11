@@ -1,3 +1,29 @@
+"""
+============================================================================
+Sistema de Monitoreo de Calidad del Aire - Xalapa, Veracruz
+============================================================================
+
+ARCHIVO: historical_routes.py
+PROPÓSITO: Rutas API para datos históricos de calidad del aire
+
+ENDPOINTS:
+    - GET /air-quality/historical : Datos históricos con escala variable
+
+ESCALAS DISPONIBLES:
+    - hourly  : Datos por hora (máx 1000 registros)
+    - daily   : Promedios diarios (máx 366 días)
+    - monthly : Promedios mensuales (máx 12 meses)
+
+ESTRATEGIA DE DATOS:
+    1. Consulta base de datos local primero
+    2. Si hay pocos datos, consulta Open-Meteo (hasta 1 año en 1 request)
+    3. Combina fuentes para mejor cobertura
+
+AUTOR: Kevin Morales
+VERSIÓN: 2.1.0
+============================================================================
+"""
+
 from typing import Optional, List, Dict
 from datetime import datetime, timedelta
 from fastapi import APIRouter, HTTPException, Depends, Query
@@ -9,14 +35,12 @@ from database import get_db
 from data_collectors.air_quality_collector import OpenMeteoCollector, get_mexico_time
 from repositories.crud import AirQualityRepository
 import logging
+import models
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
 openmeteo_collector = OpenMeteoCollector()
-
-# Importar models al inicio
-import models
 
 @router.get("/air-quality/historical")
 async def get_historical_data(

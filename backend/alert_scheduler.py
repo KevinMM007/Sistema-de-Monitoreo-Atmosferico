@@ -1,5 +1,23 @@
 """
-Scheduler para verificación automática de calidad del aire y envío de alertas.
+============================================================================
+Sistema de Monitoreo de Calidad del Aire - Xalapa, Veracruz
+============================================================================
+
+ARCHIVO: alert_scheduler.py
+PROPÓSITO: Programador de verificaciones automáticas de calidad del aire
+
+FUNCIONAMIENTO:
+    - Ejecuta verificaciones cada 30 minutos (configurable)
+    - Obtiene datos frescos de Open-Meteo
+    - Evalúa si PM2.5 supera umbral de alerta (35.4 µg/m³)
+    - Envía notificaciones por email a suscriptores
+    - Previene spam con intervalo mínimo de 1 hora entre alertas
+
+NOTA: Corre en un thread separado para no bloquear el servidor.
+
+AUTOR: Kevin Morales
+VERSIÓN: 2.1.0
+============================================================================
 """
 
 import asyncio

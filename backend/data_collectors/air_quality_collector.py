@@ -1,9 +1,40 @@
+"""
+============================================================================
+Sistema de Monitoreo de Calidad del Aire - Xalapa, Veracruz
+============================================================================
+
+ARCHIVO: data_collectors/air_quality_collector.py
+PROPÓSITO: Colector de datos de contaminantes atmosféricos
+
+FUENTE DE DATOS:
+    Open-Meteo Air Quality API (CAMS - Copernicus Atmosphere Monitoring Service)
+    URL: https://air-quality-api.open-meteo.com/v1/air-quality
+
+CONTAMINANTES RECOPILADOS:
+    - PM2.5  : Partículas finas (µg/m³)
+    - PM10   : Partículas gruesas (µg/m³)
+    - NO₂    : Dióxido de nitrógeno (µg/m³)
+    - O₃     : Ozono (µg/m³)
+    - CO     : Monóxido de carbono (mg/m³)
+
+CARACTERÍSTICAS:
+    - Datos satelitales validados por ECMWF/Unión Europea
+    - Resolución espacial: ~40km
+    - Actualización: Cada hora
+    - Caché interno: 5 minutos (para evitar requests excesivos)
+    - Zona horaria: México (UTC-6) para consistencia
+
+AUTOR: Kevin Morales
+VERSIÓN: 2.1.0
+============================================================================
+"""
+
 import requests
 from datetime import datetime, timedelta, timezone
 import random
 
 # ============================================================================
-# 🆕 FIX: Zona horaria de México para consistencia entre servidores
+# FIX: Zona horaria de México para consistencia entre servidores
 # ============================================================================
 # El problema: Render usa UTC, tu PC usa hora de México.
 # Open-Meteo devuelve timestamps en hora de México.

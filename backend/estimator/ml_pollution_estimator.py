@@ -1,3 +1,32 @@
+"""
+============================================================================
+Sistema de Monitoreo de Calidad del Aire - Xalapa, Veracruz
+============================================================================
+
+ARCHIVO: estimator/ml_pollution_estimator.py
+PROPÓSITO: Estimador de contaminación usando modelos estadísticos
+
+FUNCIONALIDADES:
+    - Predice niveles de contaminantes basándose en patrones históricos
+    - Considera variables temporales (hora, día de semana, mes)
+    - Considera condiciones meteorológicas
+    - Aplica factores de ajuste por zona geográfica
+
+MODELOS DISPONIBLES (JSON):
+    - pm25_model.json
+    - pm10_model.json
+    - no2_model.json
+    - o3_model.json
+    - co_model.json
+
+UBICACIÓN DE MODELOS:
+    - backend/models/
+
+AUTOR: Kevin Morales
+VERSIÓN: 2.1.0
+============================================================================
+"""
+
 import numpy as np
 import pandas as pd
 import os

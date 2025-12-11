@@ -1,6 +1,31 @@
 """
-Servicio de envío de correos electrónicos para notificaciones de calidad del aire
+============================================================================
+Sistema de Monitoreo de Calidad del Aire - Xalapa, Veracruz
+============================================================================
+
+ARCHIVO: email_service.py
+PROPÓSITO: Servicio de envío de correos electrónicos
+
+FUNCIONALIDADES:
+    - Envío de alertas de calidad del aire
+    - Correos de bienvenida a nuevos suscriptores
+    - Correos de prueba para verificar configuración
+
+CONFIGURACIÓN REQUERIDA (variables de entorno):
+    - EMAIL_HOST: Servidor SMTP (default: smtp.gmail.com)
+    - EMAIL_PORT: Puerto SMTP (default: 587)
+    - EMAIL_HOST_USER: Usuario/email
+    - EMAIL_HOST_PASSWORD: Contraseña de aplicación
+    - EMAIL_FROM: Remitente
+
+NOTA: Para Gmail, usar "Contraseñas de aplicación" en lugar
+      de la contraseña normal de la cuenta.
+
+AUTOR: Kevin Morales
+VERSIÓN: 2.1.0
+============================================================================
 """
+
 import smtplib
 import os
 from email.mime.text import MIMEText
@@ -10,7 +35,6 @@ from typing import Dict, List
 import logging
 from dotenv import load_dotenv
 
-# Cargar variables de entorno del archivo .env
 load_dotenv()
 
 logger = logging.getLogger(__name__)

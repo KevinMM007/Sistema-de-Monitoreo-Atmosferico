@@ -1,3 +1,31 @@
+"""
+============================================================================
+Sistema de Monitoreo de Calidad del Aire - Xalapa, Veracruz
+============================================================================
+
+ARCHIVO: alert_system.py
+PROPÓSITO: Sistema de alertas y evaluación de calidad del aire
+
+FUNCIONALIDADES:
+    - Evaluación de niveles de contaminantes según NOM-025-SSA1-2021
+    - Generación de alertas según nivel de riesgo
+    - Envío de notificaciones por email a suscriptores
+    - Cálculo del Índice de Calidad del Aire (AQI)
+    - Generación de reportes diarios
+
+NIVELES DE ALERTA:
+    - Bueno: Sin riesgo
+    - Moderado: Personas sensibles deben tener precaución
+    - Insalubre (grupos sensibles): Evitar actividades al aire libre
+    - Insalubre: Todos deben limitar exposición
+    - Muy Insalubre: Permanecer en interiores
+    - Peligroso: Emergencia sanitaria
+
+AUTOR: Kevin Morales
+VERSIÓN: 2.1.0
+============================================================================
+"""
+
 from datetime import datetime, timedelta
 import json
 from typing import List, Dict, Optional

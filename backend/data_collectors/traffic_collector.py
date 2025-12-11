@@ -1,3 +1,36 @@
+"""
+============================================================================
+Sistema de Monitoreo de Calidad del Aire - Xalapa, Veracruz
+============================================================================
+
+ARCHIVO: data_collectors/traffic_collector.py
+PROPÓSITO: Colector de datos de tráfico usando TomTom Traffic API
+
+FUENTE DE DATOS:
+    TomTom Traffic Flow API
+    URL: https://api.tomtom.com/traffic/services/
+
+DATOS RECOPILADOS:
+    - Velocidad actual (km/h)
+    - Velocidad de flujo libre (km/h)
+    - Nivel de congestión (%)
+    - Tiempos de viaje
+
+PUNTOS DE MONITOREO EN XALAPA:
+    - Centro: Av. Enríquez
+    - Norte: Av. Lázaro Cárdenas (zona USBI)
+    - Sur: Av. Américas
+    - Este: Carretera a Coatepec
+    - Oeste: Av. Ávila Camacho
+
+LÍMITES API:
+    - Plan gratuito: 2,500 requests/día
+
+AUTOR: Kevin Morales
+VERSIÓN: 2.1.0
+============================================================================
+"""
+
 import requests
 from datetime import datetime
 import json
@@ -5,14 +38,12 @@ import os
 from dotenv import load_dotenv
 import logging
 
-# Configurar logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
 
-# Cargar variables de entorno
 load_dotenv()
 
 class TomTomTrafficCollector:
