@@ -46,18 +46,18 @@ if DATABASE_URL and DATABASE_URL.startswith('postgres://'):
 is_production = 'supabase' in DATABASE_URL.lower() or os.getenv('ENVIRONMENT') == 'production'
 
 if is_production:
-    # 🆕 Configuración OPTIMIZADA para Supabase Free Tier
-    # Supabase en modo Session tiene límites estrictos de conexiones
+    # Configuración MÍNIMA para Supabase Free Tier
+    # El modo Session pooler tiene límite muy estricto de conexiones
     engine = create_engine(
         DATABASE_URL,
         pool_pre_ping=True,      # Verificar conexiones antes de usarlas
-        pool_recycle=120,        # Reciclar conexiones cada 2 minutos
-        pool_size=2,             # Solo 2 conexiones en el pool (mínimo)
-        max_overflow=3,          # Máximo 3 conexiones adicionales
-        pool_timeout=30,         # Timeout de 30 segundos para obtener conexión
+        pool_recycle=60,         # Reciclar conexiones cada 1 minuto
+        pool_size=1,             # Solo 1 conexión en el pool
+        max_overflow=2,          # Máximo 2 conexiones adicionales
+        pool_timeout=60,         # Timeout más largo para esperar conexión
         echo=False               # No mostrar SQL en logs
     )
-    print("📦 Database: Usando configuración optimizada para Supabase")
+    print("📦 Database: Configuración mínima para Supabase Free Tier")
 else:
     # Configuración para desarrollo local (más permisiva)
     engine = create_engine(
