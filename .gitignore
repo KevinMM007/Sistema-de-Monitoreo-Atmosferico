@@ -12,6 +12,7 @@ env/
 # Archivos de configuración local
 *.local
 .env.local
+backend/.env
 frontend/.env
 frontend/.env.production
 frontend/.env.local
