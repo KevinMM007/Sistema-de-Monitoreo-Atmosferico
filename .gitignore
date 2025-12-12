@@ -60,3 +60,4 @@ test_*.py
 # Archivos temporales
 *.tmp
 *.temp
+.claude
