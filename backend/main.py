@@ -159,16 +159,46 @@ Para más información sobre los endpoints, consulta las secciones a continuaci�
 )
 
 # ============================================================================
-# CONFIGURACIÓN DE CORS (Modo Público Abierto)
+
+# CONFIGURACIÓN DE CORS
+
 # ============================================================================
-print("\n🔒 Configuración CORS: Activada en Modo Público (*)\n")
+
+# En desarrollo: permite todos los orígenes (*)
+
+# En producción: restringe a dominios específicos por seguridad
+
+# Configura CORS_ORIGINS en .env: CORS_ORIGINS=https://tu-frontend.vercel.app
+
+# ============================================================================
+
+cors_origins_env = os.getenv('CORS_ORIGINS', '*')
+environment = os.getenv('ENVIRONMENT', 'development')
+
+# Parsear orígenes permitidos
+if cors_origins_env == '*':
+    allow_origins = ['*']
+    allow_credentials = False  # No permitir credentials con wildcard
+
+else:
+    # Separar por comas y limpiar espacios
+    allow_origins = [origin.strip() for origin in cors_origins_env.split(',')]
+    allow_credentials = True  # Permitir credentials con orígenes específicos
+
+
+print(f"\n🔒 Configuración CORS:")
+print(f"   Entorno: {environment}")
+print(f"   Orígenes permitidos: {allow_origins}")
+print(f"   Credentials: {allow_credentials}\n")
+
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],        # El comodín '*' permite que Vercel (y cualquier origen) pase sin preguntar.
-    allow_credentials=False,    # ¡OJO! Esto DEBE ser False para que el comodín '*' funcione.
+    allow_origins=allow_origins,
+    allow_credentials=allow_credentials,
     allow_methods=["*"],
     allow_headers=["*"]
+
 )
 # Crear las tablas de la base de datos
 models.Base.metadata.create_all(bind=engine)
