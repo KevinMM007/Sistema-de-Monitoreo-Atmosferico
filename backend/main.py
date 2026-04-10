@@ -159,18 +159,14 @@ Para más información sobre los endpoints, consulta las secciones a continuaci�
 )
 
 # ============================================================================
-# CONFIGURACIÓN DE CORS (Actualizado)
+# CONFIGURACIÓN DE CORS (Modo Público Abierto)
 # ============================================================================
-print("\n🔒 Configuración CORS: Activada explícitamente para Vercel\n")
+print("\n🔒 Configuración CORS: Activada en Modo Público (*)\n")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://calidad-aire-xalapa.vercel.app",  # Tu frontend en Vercel
-        "http://localhost:3000",                   # Frontend local
-        "http://localhost:5173"                    # Frontend local (Vite)
-    ],
-    allow_credentials=True,
+    allow_origins=["*"],        # El comodín '*' permite que Vercel (y cualquier origen) pase sin preguntar.
+    allow_credentials=False,    # ¡OJO! Esto DEBE ser False para que el comodín '*' funcione.
     allow_methods=["*"],
     allow_headers=["*"]
 )
