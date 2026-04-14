@@ -61,7 +61,7 @@ from data_collectors.traffic_collector import TomTomTrafficCollector
 from estimator.ml_pollution_estimator import MLPollutionEstimator
 from alert_system import AlertSystem
 from historical_routes import router as historical_router
-from osm_analyzer import osm_analyzer
+from osm_analyzer_optimized import osm_analyzer
 from osm_cache import osm_cache
 from alert_scheduler import alert_scheduler
 
@@ -850,7 +850,14 @@ async def get_zones_osm_analysis():
             'data_source': 'OpenStreetMap'
         }
         
-        if any(not z.get('metrics', {}).get('error') for z in results):
+        # Solo cachear si al menos una zona tiene datos reales de OSM
+        # (no cachear respuestas donde todas las zonas cayeron a factores por defecto,
+        # para permitir que el sistema se recupere cuando Overpass vuelva a estar disponible)
+        has_real_data = any(
+            not z.get('using_defaults') and not z.get('metrics', {}).get('error')
+            for z in results
+        )
+        if has_real_data:
             osm_cache.set(cache_key, response_data)
         
         return response_data

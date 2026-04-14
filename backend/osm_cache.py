@@ -33,7 +33,7 @@ class OSMCache:
     def __init__(self, cache_dir: str = "cache"):
         self.cache_dir = cache_dir
         self.cache_file = os.path.join(cache_dir, "osm_zones_cache.json")
-        self.cache_duration = timedelta(days=7)  # Caché válido por 7 días
+        self.cache_duration = timedelta(days=30)  # Caché válido por 30 días (infraestructura OSM cambia poco)
         
         # Crear directorio de caché si no existe
         os.makedirs(cache_dir, exist_ok=True)

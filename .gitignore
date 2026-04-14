@@ -61,3 +61,7 @@ test_*.py
 *.tmp
 *.temp
 .claude
+
+# Notas locales de diagnóstico y scripts de verificación manual
+SOLUCION_*.md
+verificar_*.py
