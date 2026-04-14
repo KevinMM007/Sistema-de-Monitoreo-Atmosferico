@@ -19,20 +19,34 @@ import { MAP_CONFIG, XALAPA_ZONES, getPollutantColor } from '../../utils/constan
 const MapBoundsHandler = ({ isVisible }) => {
     const map = useMap();
     const wasVisible = useRef(isVisible);
-    
+
+    // Llamada segura: el mapa puede haber sido destruido entre el setTimeout
+    // y la ejecución del callback (p.ej. cuando el padre remonta el
+    // MapContainer vía mapKey). invalidateSize() sobre un mapa sin _mapPane
+    // lanza "Cannot read properties of undefined (reading '_leaflet_pos')".
+    const safeInvalidate = (mapInstance) => {
+        try {
+            if (mapInstance && mapInstance._mapPane) {
+                mapInstance.invalidateSize();
+            }
+        } catch (e) {
+            // Ignorar errores si el mapa no está listo o ya fue destruido
+        }
+    };
+
     useEffect(() => {
         if (map) {
             // Establecer límites del mapa
             map.setMaxBounds(MAP_CONFIG.maxBounds);
             map.options.maxBoundsViscosity = 1.0;
-            
+
             // Invalidar tamaño
-            const invalidate = () => map.invalidateSize();
+            const invalidate = () => safeInvalidate(map);
             invalidate();
             const timer1 = setTimeout(invalidate, 100);
             const timer2 = setTimeout(invalidate, 300);
             const timer3 = setTimeout(invalidate, 600);
-            
+
             return () => {
                 clearTimeout(timer1);
                 clearTimeout(timer2);
@@ -40,27 +54,35 @@ const MapBoundsHandler = ({ isVisible }) => {
             };
         }
     }, [map]);
-    
+
     useEffect(() => {
         if (isVisible && !wasVisible.current && map) {
-            const invalidate = () => map.invalidateSize();
+            const invalidate = () => safeInvalidate(map);
             invalidate();
-            setTimeout(invalidate, 100);
-            setTimeout(invalidate, 300);
-            setTimeout(invalidate, 500);
+            const timer1 = setTimeout(invalidate, 100);
+            const timer2 = setTimeout(invalidate, 300);
+            const timer3 = setTimeout(invalidate, 500);
+
+            wasVisible.current = isVisible;
+
+            // Limpiar los timers si el componente se desmonta antes de que
+            // disparen — era la fuga que causaba el TypeError de Leaflet.
+            return () => {
+                clearTimeout(timer1);
+                clearTimeout(timer2);
+                clearTimeout(timer3);
+            };
         }
         wasVisible.current = isVisible;
     }, [isVisible, map]);
-    
+
     useEffect(() => {
-        const handleResize = () => {
-            if (map) map.invalidateSize();
-        };
-        
+        const handleResize = () => safeInvalidate(map);
+
         window.addEventListener('resize', handleResize);
         return () => window.removeEventListener('resize', handleResize);
     }, [map]);
-    
+
     return null;
 };
 
