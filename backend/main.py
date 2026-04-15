@@ -252,7 +252,12 @@ async def shutdown_event():
 # ENDPOINTS DE ESTADO Y DIAGNÓSTICO
 # ============================================================================
 
-@app.get("/api/health", tags=["🏥 Estado del Sistema"], summary="Verificar estado del sistema")
+@app.api_route(
+    "/api/health",
+    methods=["GET", "HEAD"],
+    tags=["🏥 Estado del Sistema"],
+    summary="Verificar estado del sistema"
+)
 async def health_check():
     return {
         "status": "ok",
