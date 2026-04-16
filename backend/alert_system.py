@@ -7,7 +7,9 @@ ARCHIVO: alert_system.py
 PROPÓSITO: Sistema de alertas y evaluación de calidad del aire
 
 FUNCIONALIDADES:
-    - Evaluación de niveles de contaminantes según NOM-025-SSA1-2021
+    - Evaluación de niveles de contaminantes mediante un esquema híbrido
+      basado en los breakpoints del AQI de la EPA de EE.UU. y los criterios
+      de PM2.5/PM10 alineados con la NOM-025-SSA1-2021 (México)
     - Generación de alertas según nivel de riesgo
     - Envío de notificaciones por email a suscriptores
     - Cálculo del Índice de Calidad del Aire (AQI)
@@ -47,7 +49,12 @@ class AlertLevel(Enum):
 
 class AlertSystem:
     def __init__(self):
-        # Umbrales según NOM-025-SSA1-2021 (México)
+        # Umbrales basados en el esquema híbrido del sistema:
+        # - PM2.5 y PM10 alineados con NOM-025-SSA1-2021 (México) y
+        #   extendidos a 6 niveles con los breakpoints del AQI de la EPA.
+        # - NO2, O3 y CO basados en los breakpoints del AQI de la EPA
+        #   (EE.UU.) y las guías de calidad del aire de la OMS (2021),
+        #   dado que la NOM-025 solo regula material particulado.
         self.thresholds = {
             'pm25': {
                 'good': (0, 12),

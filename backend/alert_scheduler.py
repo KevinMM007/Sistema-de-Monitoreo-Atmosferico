@@ -9,14 +9,16 @@ PROPÓSITO: Programador de verificaciones automáticas de calidad del aire
 FUNCIONAMIENTO:
     - Ejecuta verificaciones cada 30 minutos (configurable)
     - Obtiene datos frescos de Open-Meteo
-    - Evalúa si PM2.5 supera umbral de alerta (35.4 µg/m³)
-    - Envía notificaciones por email a suscriptores
+    - Evalúa los 5 contaminantes (PM2.5, PM10, NO2, O3, CO) delegando
+      la clasificación de severidad a AlertSystem.evaluate_air_quality()
+    - Envía notificaciones por email a suscriptores cuando el nivel
+      global supera "moderado" (es decir, "insalubre_sensibles" o peor)
     - Previene spam con intervalo mínimo de 1 hora entre alertas
 
 NOTA: Corre en un thread separado para no bloquear el servidor.
 
 AUTOR: Kevin Morales
-VERSIÓN: 2.1.0
+VERSIÓN: 2.2.0
 ============================================================================
 """
 
@@ -46,8 +48,16 @@ class AlertScheduler:
         self.checks_count = 0
         self.alerts_sent_count = 0
 
-        # Umbral para enviar alertas (PM2.5 > 35.4 = Insalubre para grupos sensibles)
-        self.pm25_alert_threshold = 35.4
+        # Niveles de severidad que disparan envío de alertas.
+        # La evaluación se delega a AlertSystem.evaluate_air_quality(),
+        # que considera los 5 contaminantes (PM2.5, PM10, NO2, O3, CO)
+        # con el esquema híbrido AQI-EPA / NOM-025-SSA1-2021.
+        self.alert_levels = {
+            'insalubre_sensibles',
+            'insalubre',
+            'muy_insalubre',
+            'peligroso'
+        }
 
         # Mínimo tiempo entre alertas (evitar spam)
         self.min_alert_interval = timedelta(hours=1)
@@ -71,7 +81,7 @@ class AlertScheduler:
         print("\n" + "="*60)
         print("📅 SCHEDULER DE ALERTAS INICIADO")
         print(f"   Intervalo: cada {self.interval_minutes} minutos")
-        print(f"   Umbral PM2.5: {self.pm25_alert_threshold} µg/m³")
+        print(f"   Niveles que disparan alerta: {', '.join(sorted(self.alert_levels))}")
         print(f"   Mínimo entre alertas: {self.min_alert_interval}")
         print("="*60 + "\n")
 
@@ -129,15 +139,42 @@ class AlertScheduler:
                 return
 
             latest = air_data[-1]
-            pm25 = latest.get('pm25', 0)
-            pm10 = latest.get('pm10', 0)
+
+            # Construir el diccionario completo con los 5 contaminantes
+            pollutant_data = {
+                'pm25': latest.get('pm25', 0) or 0,
+                'pm10': latest.get('pm10', 0) or 0,
+                'no2': latest.get('no2', 0) or 0,
+                'o3': latest.get('o3', 0) or 0,
+                'co': latest.get('co', 0) or 0
+            }
 
             print(f"📊 Datos obtenidos:")
-            print(f"   PM2.5: {pm25:.2f} µg/m³ (umbral: {self.pm25_alert_threshold})")
-            print(f"   PM10: {pm10:.2f} µg/m³")
+            print(f"   PM2.5: {pollutant_data['pm25']:.2f} µg/m³")
+            print(f"   PM10:  {pollutant_data['pm10']:.2f} µg/m³")
+            print(f"   NO2:   {pollutant_data['no2']:.2f} µg/m³")
+            print(f"   O3:    {pollutant_data['o3']:.2f} µg/m³")
+            print(f"   CO:    {pollutant_data['co']:.3f} mg/m³")
 
-            if pm25 > self.pm25_alert_threshold:
-                print(f"\n🚨 PM2.5 SUPERA EL UMBRAL ({pm25:.2f} > {self.pm25_alert_threshold})")
+            # Delegar la evaluación al AlertSystem (que ya conoce los 5
+            # contaminantes y aplica el esquema híbrido AQI-EPA / NOM-025).
+            alert_system = self.app_context.get('alert_system')
+            if not alert_system:
+                logger.error("❌ alert_system no disponible para evaluación previa")
+                return
+
+            preview = alert_system.evaluate_air_quality(
+                pollutant_data,
+                send_notifications=False,
+                db=None
+            )
+            overall_level = preview.get('overall_level')
+            level_value = overall_level.value if hasattr(overall_level, 'value') else str(overall_level)
+
+            print(f"   Nivel global evaluado: {level_value}")
+
+            if level_value in self.alert_levels:
+                print(f"\n🚨 NIVEL '{level_value}' SUPERA EL UMBRAL DE ALERTA")
 
                 if self.last_alert_sent:
                     time_since_last = datetime.now() - self.last_alert_sent
@@ -148,7 +185,7 @@ class AlertScheduler:
 
                 await self._send_alerts(latest)
             else:
-                print(f"✅ Niveles dentro de lo aceptable - No se envían alertas")
+                print(f"✅ Niveles dentro de lo aceptable ('{level_value}') - No se envían alertas")
 
         except Exception as e:
             logger.error(f"❌ Error en verificación: {str(e)}")
@@ -216,7 +253,8 @@ class AlertScheduler:
         return {
             'is_running': self.is_running,
             'interval_minutes': self.interval_minutes,
-            'pm25_threshold': self.pm25_alert_threshold,
+            'alert_levels': sorted(self.alert_levels),
+            'evaluated_pollutants': ['pm25', 'pm10', 'no2', 'o3', 'co'],
             'last_check': self.last_check.isoformat() if self.last_check else None,
             'last_alert_sent': self.last_alert_sent.isoformat() if self.last_alert_sent else None,
             'checks_count': self.checks_count,
