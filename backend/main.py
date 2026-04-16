@@ -1030,6 +1030,11 @@ async def get_current_alerts(db: Session = Depends(get_db)):
             'o3': {'good_max': 50, 'moderate_max': 100, 'unit': 'µg/m³'},
             'co': {'good_max': 4.4, 'moderate_max': 9.4, 'unit': 'mg/m³'}
         }
+        evaluation['thresholds_standard'] = (
+            'Esquema híbrido: AQI de la EPA (EE.UU.) como base de 6 niveles; '
+            'PM2.5/PM10 alineados con NOM-025-SSA1-2021 (México); '
+            'O3 calibrado con la guía de la OMS 2021 (100 µg/m³ máximo 8h).'
+        )
         evaluation['note'] = 'Datos sincronizados con el Dashboard principal'
         
         return evaluation
