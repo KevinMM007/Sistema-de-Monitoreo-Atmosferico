@@ -283,6 +283,51 @@ const useAlerts = (options = {}) => {
     }, [email, fetchAlertHistory]);
 
     /**
+     * Verifica en la base de datos si un email está suscrito.
+     * A diferencia de loadNotificationSettings, no depende de localStorage:
+     * permite a un usuario que se suscribió desde otro dispositivo ver su
+     * estado actual ingresando su correo.
+     */
+    const checkSubscriptionByEmail = useCallback(async (emailToCheck) => {
+        const value = (emailToCheck || '').trim();
+        const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+        if (!value || !emailRegex.test(value)) {
+            setSubscriptionMessage('❌ Por favor ingrese un correo electrónico válido');
+            setTimeout(() => setSubscriptionMessage(''), 3000);
+            return { found: false };
+        }
+
+        setSubscriptionLoading(true);
+        try {
+            const response = await alertService.checkSubscription(value);
+            if (response && response.is_active) {
+                setEmail(value);
+                setIsSubscribed(true);
+                localStorage.setItem('notificationEmail', value);
+                setSubscriptionMessage(`✅ Suscripción activa para ${value}`);
+                return { found: true, active: true };
+            }
+            setSubscriptionMessage(`ℹ️ ${value} no tiene una suscripción activa. Puedes suscribirte abajo.`);
+            setEmail(value);
+            setIsSubscribed(false);
+            return { found: true, active: false };
+        } catch (err) {
+            // 404 = email no registrado — no es un error real
+            if (err.message?.includes('404') || err.message?.toLowerCase().includes('no encontrada')) {
+                setSubscriptionMessage(`ℹ️ ${value} no está suscrito. Puedes suscribirte abajo.`);
+                setEmail(value);
+                setIsSubscribed(false);
+                return { found: false };
+            }
+            setSubscriptionMessage('❌ Error: ' + (err.message || 'No se pudo verificar'));
+            return { found: false, error: true };
+        } finally {
+            setSubscriptionLoading(false);
+            setTimeout(() => setSubscriptionMessage(''), 5000);
+        }
+    }, [setEmail]);
+
+    /**
      * Alterna el estado de suscripción
      */
     const toggleSubscription = useCallback(async () => {
@@ -367,6 +412,7 @@ const useAlerts = (options = {}) => {
         subscribe,
         unsubscribe,
         toggleSubscription,
+        checkSubscriptionByEmail,
         
         // Notificaciones push
         pushPermission,

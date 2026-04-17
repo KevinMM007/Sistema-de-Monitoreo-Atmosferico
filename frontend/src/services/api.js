@@ -180,6 +180,15 @@ export const alertService = {
      * @param {string} email - Email a desuscribir
      */
     unsubscribe: (email) => del(`/alerts/unsubscribe/${email}`),
+
+    /**
+     * Desuscripción con un clic usando el token del email de alerta.
+     * Consumido por la página /unsubscribe.
+     * @param {string} email - Email a desuscribir
+     * @param {string} token - Token opaco emitido al suscribirse
+     */
+    unsubscribeViaLink: (email, token) =>
+        get('/alerts/unsubscribe-link', { email, token }),
 };
 
 // ============================================

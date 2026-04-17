@@ -41,8 +41,9 @@ from rate_limiter import rate_limit_middleware_check, get_rate_limit_stats, clea
 from custom_email_validator import validate_email, validate_email_for_api, normalize_email
 from dotenv import load_dotenv
 # NOTA: Se eliminó 'import random' - NO usamos datos aleatorios
-from sqlalchemy import func, extract
+from sqlalchemy import func, extract, text
 from sqlalchemy.orm import Session
+import uuid
 from data_collectors.air_quality_collector import OpenMeteoCollector, get_fallback_data
 
 # Cargar variables de entorno
@@ -223,6 +224,35 @@ async def startup_event():
     """Carga suscripciones e inicia el scheduler de alertas"""
     try:
         db = next(get_db())
+
+        # Migración idempotente: agregar columna unsubscribe_token si no existe.
+        # Permite desuscripción con un clic desde el email (link en el footer).
+        try:
+            db.execute(text(
+                "ALTER TABLE alert_subscriptions "
+                "ADD COLUMN IF NOT EXISTS unsubscribe_token VARCHAR"
+            ))
+            db.commit()
+            print("✓ Migración: columna unsubscribe_token verificada/creada")
+        except Exception as mig_err:
+            print(f"⚠️ Migración unsubscribe_token: {mig_err}")
+            db.rollback()
+
+        # Backfill: generar token para suscripciones activas que no lo tengan
+        try:
+            missing = db.query(models.AlertSubscription).filter(
+                models.AlertSubscription.is_active == True,
+                (models.AlertSubscription.unsubscribe_token == None)  # noqa: E711
+            ).all()
+            for sub in missing:
+                sub.unsubscribe_token = uuid.uuid4().hex
+            if missing:
+                db.commit()
+                print(f"✓ Backfill de tokens: {len(missing)} suscripciones")
+        except Exception as bf_err:
+            print(f"⚠️ Backfill de tokens: {bf_err}")
+            db.rollback()
+
         active_subscriptions = db.query(models.AlertSubscription).filter(
             models.AlertSubscription.is_active == True
         ).all()
@@ -1173,6 +1203,8 @@ async def subscribe_to_alerts(request: dict, db: Session = Depends(get_db)):
                 print(f"  ↻ Reactivando suscripción existente...")
                 existing.is_active = True
                 existing.updated_at = datetime.utcnow()
+                # Generar un nuevo token al reactivar (invalida link viejo)
+                existing.unsubscribe_token = uuid.uuid4().hex
                 db.commit()
                 alert_system.subscribe_email(email)
 
@@ -1199,7 +1231,11 @@ async def subscribe_to_alerts(request: dict, db: Session = Depends(get_db)):
 
         # Nueva suscripción
         print(f"  ➕ Creando nueva suscripción...")
-        new_subscription = models.AlertSubscription(email=email, is_active=True)
+        new_subscription = models.AlertSubscription(
+            email=email,
+            is_active=True,
+            unsubscribe_token=uuid.uuid4().hex,
+        )
         db.add(new_subscription)
         db.commit()
         alert_system.subscribe_email(email)
@@ -1376,6 +1412,58 @@ async def get_subscription_status(email: str, db: Session = Depends(get_db)):
     except Exception as e:
         print(f"Error obteniendo suscripción: {str(e)}")
         raise HTTPException(status_code=500, detail={"error": "Error al obtener suscripción"})
+
+@app.get("/api/alerts/unsubscribe-link", tags=["🔔 Alertas"], summary="Desuscribirse con token (un clic desde email)")
+async def unsubscribe_via_link(email: str, token: str, db: Session = Depends(get_db)):
+    """
+    Desuscribe un email usando el token enviado en el link del correo de alerta.
+
+    Este endpoint permite la desuscripción con un solo clic desde cualquier
+    dispositivo, sin necesidad de abrir el dashboard ni iniciar sesión.
+    Es consumido por la página `/unsubscribe` del frontend.
+
+    El token es un UUID opaco generado al crear/reactivar la suscripción;
+    si el token no coincide, se rechaza con 403 para evitar desuscripciones
+    no autorizadas a terceros.
+    """
+    try:
+        from urllib.parse import unquote
+        decoded_email = unquote(email).strip().lower()
+
+        subscription = db.query(models.AlertSubscription).filter(
+            models.AlertSubscription.email == decoded_email
+        ).first()
+
+        if not subscription:
+            raise HTTPException(status_code=404, detail="Suscripción no encontrada")
+
+        # Verificar token. Si la suscripción no tiene token (suscripción
+        # anterior al despliegue de esta feature), aceptamos el primer clic
+        # para no bloquear a los usuarios existentes.
+        if subscription.unsubscribe_token and subscription.unsubscribe_token != token:
+            raise HTTPException(status_code=403, detail="Token inválido")
+
+        was_active = subscription.is_active
+        subscription.is_active = False
+        subscription.updated_at = datetime.utcnow()
+        # Invalidar el token usado para que el link no se pueda reutilizar.
+        subscription.unsubscribe_token = None
+        db.commit()
+
+        alert_system.unsubscribe_email(decoded_email)
+
+        return {
+            "message": "Desuscripción exitosa" if was_active else "La suscripción ya estaba inactiva",
+            "email": decoded_email,
+            "was_active": was_active,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error en unsubscribe-link: {str(e)}")
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Error al procesar desuscripción")
+
 
 @app.delete("/api/alerts/unsubscribe/{email}", tags=["🔔 Alertas"], summary="Desuscribirse de alertas")
 async def unsubscribe_email(email: str, db: Session = Depends(get_db)):

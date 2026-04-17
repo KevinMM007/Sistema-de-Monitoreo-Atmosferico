@@ -51,6 +51,7 @@ const AlertsAndPredictions = ({ isVisible = true }) => {
         subscriptionMessage,
         subscribe,
         unsubscribe,
+        checkSubscriptionByEmail,
         
         // Notificaciones push
         pushPermission,
@@ -121,6 +122,7 @@ const AlertsAndPredictions = ({ isVisible = true }) => {
                             subscriptionMessage={subscriptionMessage}
                             onSubscribe={subscribe}
                             onUnsubscribe={unsubscribe}
+                            onCheckSubscription={checkSubscriptionByEmail}
                             pushPermission={pushPermission}
                             onRequestPushPermission={requestPushPermission}
                         />
