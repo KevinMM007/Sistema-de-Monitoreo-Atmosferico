@@ -1255,6 +1255,81 @@ async def test_email_notification(request: dict):
         print(f"Error en test de email: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/api/alerts/trigger-now", tags=["🔔 Alertas"], summary="Disparar verificación manual de alertas")
+async def trigger_alert_check_now(force: bool = False, db: Session = Depends(get_db)):
+    """
+    Dispara manualmente una verificación de calidad del aire fuera del ciclo
+    normal del scheduler. Útil para demos y pruebas.
+
+    - `force=false` (default): respeta el rate-limit normal (1h entre alertas
+      por suscriptor).
+    - `force=true`: resetea el rate-limit en memoria y en la base de datos,
+      por lo que todos los suscriptores activos recibirán la alerta aunque
+      ya hubieran recibido una en la última hora. **Usar solo para pruebas.**
+
+    Retorna el nivel evaluado, los valores de los 5 contaminantes y un flag
+    indicando si se enviaron notificaciones por email.
+    """
+    try:
+        print(f"\n🚨 TRIGGER MANUAL (force={force})")
+
+        fresh_data = await openmeteo_collector.get_air_quality_data()
+        if not fresh_data or len(fresh_data) == 0:
+            raise HTTPException(status_code=503, detail="No hay datos disponibles de Open-Meteo")
+
+        latest = fresh_data[-1]
+        pollutant_data = {
+            'pm25': latest.get('pm25', 0) or 0,
+            'pm10': latest.get('pm10', 0) or 0,
+            'no2':  latest.get('no2',  0) or 0,
+            'o3':   latest.get('o3',   0) or 0,
+            'co':   latest.get('co',   0) or 0,
+        }
+
+        if force:
+            # Resetear rate-limit en memoria
+            alert_system.last_notification_time = {}
+            # Resetear last_notification_sent en BD para todos los suscriptores activos
+            active_subs = db.query(models.AlertSubscription).filter(
+                models.AlertSubscription.is_active == True
+            ).all()
+            for sub in active_subs:
+                sub.last_notification_sent = None
+            db.commit()
+            print(f"   🔓 Rate-limit reseteado para {len(active_subs)} suscriptores")
+
+        evaluation = alert_system.evaluate_air_quality(
+            pollutant_data, send_notifications=True, db=db
+        )
+
+        level = evaluation.get('overall_level')
+        level_str = level.value if hasattr(level, 'value') else str(level)
+        triggers_alert = level_str in {
+            'insalubre_sensibles', 'insalubre', 'muy_insalubre', 'peligroso'
+        }
+
+        return {
+            'triggered_at': datetime.now().isoformat(),
+            'force': force,
+            'level': level_str,
+            'would_trigger_alert': triggers_alert,
+            'pollutant_data': pollutant_data,
+            'aqi': evaluation.get('aqi', {}),
+            'message': (
+                'Nivel de alerta — notificaciones enviadas a suscriptores activos.'
+                if triggers_alert else
+                'Nivel bueno/moderado — no se envían notificaciones por email.'
+            )
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error en trigger manual: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/api/alerts/subscriptions")
 async def get_all_subscriptions(db: Session = Depends(get_db)):
     """Obtiene todas las suscripciones de alertas"""
