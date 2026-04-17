@@ -35,6 +35,11 @@ from typing import Dict, List
 import logging
 from dotenv import load_dotenv
 
+try:
+    from zoneinfo import ZoneInfo  # Python 3.9+
+except ImportError:  # pragma: no cover
+    from backports.zoneinfo import ZoneInfo  # type: ignore
+
 load_dotenv()
 
 logger = logging.getLogger(__name__)
@@ -48,6 +53,18 @@ class EmailService:
         self.password = os.getenv('EMAIL_HOST_PASSWORD', '')
         self.from_email = os.getenv('EMAIL_FROM', self.username)
         self.use_tls = os.getenv('EMAIL_USE_TLS', 'True').lower() == 'true'
+
+        # URL pública del dashboard (frontend en Vercel).
+        # Se permite override por entorno para no tener que hardcodear.
+        self.dashboard_url = os.getenv(
+            'DASHBOARD_URL',
+            'https://calidad-aire-xalapa.vercel.app'
+        )
+
+        # Zona horaria para mostrar fechas al usuario.
+        # El servidor en Render corre en UTC, pero los suscriptores están
+        # en Xalapa (America/Mexico_City, UTC-6).
+        self.display_tz = ZoneInfo(os.getenv('DISPLAY_TIMEZONE', 'America/Mexico_City'))
         
         # Verificar configuración
         if not self.username or not self.password:
@@ -106,6 +123,23 @@ class EmailService:
             logger.error(f"✗ Error enviando correo a {to_email}: {str(e)}")
             return False
     
+    def _format_local_datetime(self, iso_timestamp: str) -> datetime:
+        """
+        Convierte un timestamp ISO (asumido UTC si no trae tzinfo) a la
+        zona horaria configurada para mostrar al usuario (Xalapa).
+        """
+        try:
+            ts = datetime.fromisoformat(iso_timestamp)
+        except (TypeError, ValueError):
+            ts = datetime.utcnow()
+
+        # datetime.now() en el backend no trae tzinfo; lo interpretamos
+        # como UTC (que es lo que usa Render) y convertimos a local.
+        if ts.tzinfo is None:
+            ts = ts.replace(tzinfo=ZoneInfo('UTC'))
+
+        return ts.astimezone(self.display_tz)
+
     def _get_email_subject(self, alert_data: Dict) -> str:
         """Genera el asunto del correo basado en el nivel de alerta"""
         overall_level = alert_data.get('overall_level')
@@ -127,17 +161,40 @@ class EmailService:
         """Crea versión de texto plano del correo"""
         overall_level = alert_data.get('overall_level')
         level = (overall_level.value if overall_level else 'desconocido').upper()
-        timestamp = alert_data.get('timestamp', datetime.now().isoformat())
+        local_ts = self._format_local_datetime(
+            alert_data.get('timestamp', datetime.utcnow().isoformat())
+        )
         aqi = alert_data.get('aqi', {}).get('overall', 'N/A')
-        
+
         recommendations = alert_data.get('recommendations', {})
-        
+        pollutant_details = alert_data.get('pollutant_details', {})
+
         text = f"""
 SISTEMA DE MONITOREO DE CALIDAD DEL AIRE - XALAPA, VERACRUZ
 
 Nivel de Calidad del Aire: {level}
 Índice AQI: {aqi}
-Fecha y Hora: {timestamp}
+Fecha y Hora: {local_ts.strftime('%d/%m/%Y %H:%M')} (hora local de Xalapa)
+
+CONCENTRACIONES MEDIDAS:
+"""
+
+        # Orden fijo para que PM2.5 aparezca primero
+        order = ['pm25', 'pm10', 'no2', 'o3', 'co']
+        for key in order:
+            detail = pollutant_details.get(key)
+            if not detail:
+                continue
+            marker = '  ⚠️ ' if detail.get('triggered') else '     '
+            value = detail.get('value', 0) or 0
+            decimals = 3 if key == 'co' else 2
+            text += (
+                f"{marker}{detail['label']:<6}: {value:.{decimals}f} "
+                f"{detail['unit']}  —  {detail['level'].value}\n"
+            )
+
+        text += f"""
+(⚠️ = contaminante que disparó la alerta)
 
 RECOMENDACIONES:
 
@@ -149,27 +206,97 @@ Grupos Sensibles:
 
 Actividades Recomendadas:
 """
-        
+
         activities = recommendations.get('activities', [])
         for activity in activities:
             text += f"- {activity}\n"
-        
+
         text += f"""
 
 ---
-Para más información, visita el dashboard: http://localhost:5173
+Para más información, visita el dashboard: {self.dashboard_url}
 
 Para desactivar estas notificaciones, ingresa al sistema y desuscríbete.
 """
-        
+
         return text
     
+    def _build_pollutant_table_html(self, pollutant_details: Dict, level_colors: Dict) -> str:
+        """
+        Construye el bloque HTML con la concentración medida de los 5
+        contaminantes, resaltando los que dispararon la alerta.
+        """
+        if not pollutant_details:
+            return ''
+
+        order = ['pm25', 'pm10', 'no2', 'o3', 'co']
+
+        rows_html = ''
+        for key in order:
+            detail = pollutant_details.get(key)
+            if not detail:
+                continue
+
+            value = detail.get('value', 0) or 0
+            decimals = 3 if key == 'co' else 2
+            level_enum = detail.get('level')
+            level_str = level_enum.value if hasattr(level_enum, 'value') else str(level_enum)
+            row_color = level_colors.get(level_str, '#6b7280')
+            triggered = detail.get('triggered', False)
+
+            row_bg = '#fef2f2' if triggered else '#ffffff'
+            label_prefix = '⚠️ ' if triggered else ''
+            weight = 'bold' if triggered else 'normal'
+
+            rows_html += f"""
+                <tr style="background: {row_bg};">
+                    <td style="padding: 10px 12px; border-bottom: 1px solid #e5e7eb; font-weight: {weight};">{label_prefix}{detail['label']}</td>
+                    <td style="padding: 10px 12px; border-bottom: 1px solid #e5e7eb; text-align: right; font-family: 'Courier New', monospace; font-weight: {weight};">{value:.{decimals}f}</td>
+                    <td style="padding: 10px 12px; border-bottom: 1px solid #e5e7eb; color: #6b7280;">{detail['unit']}</td>
+                    <td style="padding: 10px 12px; border-bottom: 1px solid #e5e7eb;">
+                        <span style="display: inline-block; padding: 3px 10px; background: {row_color}; color: white; border-radius: 12px; font-size: 12px;">{level_str.replace('_', ' ')}</span>
+                    </td>
+                </tr>
+            """
+
+        return f"""
+        <div style="margin-bottom: 20px;">
+            <h3 style="color: #1f2937; margin-bottom: 10px;">🧪 Concentraciones medidas</h3>
+            <table style="width: 100%; border-collapse: collapse; background: white; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;">
+                <thead>
+                    <tr style="background: #f9fafb;">
+                        <th style="padding: 10px 12px; text-align: left; font-size: 13px; color: #374151; border-bottom: 1px solid #e5e7eb;">Contaminante</th>
+                        <th style="padding: 10px 12px; text-align: right; font-size: 13px; color: #374151; border-bottom: 1px solid #e5e7eb;">Valor</th>
+                        <th style="padding: 10px 12px; text-align: left; font-size: 13px; color: #374151; border-bottom: 1px solid #e5e7eb;">Unidad</th>
+                        <th style="padding: 10px 12px; text-align: left; font-size: 13px; color: #374151; border-bottom: 1px solid #e5e7eb;">Estado</th>
+                    </tr>
+                </thead>
+                <tbody>{rows_html}
+                </tbody>
+            </table>
+            <p style="margin: 8px 0 0 0; font-size: 12px; color: #6b7280;">⚠️ Filas resaltadas = contaminantes que dispararon la alerta.</p>
+        </div>
+        """
+
     def _create_html_email(self, alert_data: Dict) -> str:
         """Crea versión HTML del correo con estilos"""
         overall_level = alert_data.get('overall_level')
         level = overall_level.value if overall_level else 'desconocido'
-        timestamp = datetime.fromisoformat(alert_data.get('timestamp', datetime.now().isoformat()))
+        timestamp = self._format_local_datetime(
+            alert_data.get('timestamp', datetime.utcnow().isoformat())
+        )
         aqi = alert_data.get('aqi', {}).get('overall', 'N/A')
+        pollutant_details = alert_data.get('pollutant_details', {})
+
+        # Colores por nivel individual de cada contaminante
+        level_colors = {
+            'bueno': '#10b981',
+            'moderado': '#f59e0b',
+            'insalubre_sensibles': '#f97316',
+            'insalubre': '#ef4444',
+            'muy_insalubre': '#dc2626',
+            'peligroso': '#7c2d12'
+        }
         
         # Colores según nivel
         colors = {
@@ -218,14 +345,17 @@ Para desactivar estas notificaciones, ingresa al sistema y desuscríbete.
         <div style="text-align: center; padding: 20px; background: {color}; color: white; border-radius: 10px; margin-bottom: 20px;">
             <div style="font-size: 48px; margin-bottom: 10px;">{icon}</div>
             <h2 style="margin: 0; font-size: 28px;">{level.upper().replace('_', ' ')}</h2>
-            <p style="margin: 10px 0 0 0; font-size: 14px;">{timestamp.strftime('%d/%m/%Y %H:%M')}</p>
+            <p style="margin: 10px 0 0 0; font-size: 14px;">{timestamp.strftime('%d/%m/%Y %H:%M')} hrs (hora local de Xalapa)</p>
         </div>
         
         <div style="background: #f3f4f6; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
             <h3 style="margin: 0 0 10px 0; font-size: 20px; color: {color};">Índice de Calidad del Aire (AQI)</h3>
             <div style="font-size: 36px; font-weight: bold; color: {color}; text-align: center;">{aqi if isinstance(aqi, (int, float)) else 'N/A'}</div>
+            <p style="margin: 10px 0 0 0; text-align: center; font-size: 12px; color: #6b7280;">Escala 0–500: Bueno (0–50) · Moderado (51–100) · Insalubre para grupos sensibles (101–150) · Insalubre (151–200) · Muy insalubre (201–300) · Peligroso (301+)</p>
         </div>
-        
+
+        {self._build_pollutant_table_html(pollutant_details, level_colors)}
+
         <div style="margin-bottom: 20px;">
             <h3 style="color: #1f2937; border-bottom: 2px solid {color}; padding-bottom: 10px;">📋 Recomendaciones</h3>
             
@@ -253,7 +383,7 @@ Para desactivar estas notificaciones, ingresa al sistema y desuscríbete.
         </div>
         
         <div style="text-align: center; padding-top: 20px; border-top: 1px solid #e5e7eb;">
-            <a href="http://localhost:5173" style="display: inline-block; background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: bold;">Ver Dashboard Completo</a>
+            <a href="{self.dashboard_url}" style="display: inline-block; background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: bold;">Ver Dashboard Completo</a>
         </div>
         
         <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb; text-align: center; font-size: 12px; color: #6b7280;">
@@ -287,7 +417,7 @@ Para desactivar estas notificaciones, ingresa al sistema y desuscríbete.
             msg['From'] = self.from_email
             msg['To'] = to_email
 
-            body = """
+            body = f"""
             <html>
             <body style="font-family: Arial, sans-serif; padding: 20px;">
                 <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; border-radius: 10px; text-align: center; margin-bottom: 20px;">
@@ -311,7 +441,7 @@ Para desactivar estas notificaciones, ingresa al sistema y desuscríbete.
                     </div>
 
                     <div style="text-align: center; margin-top: 30px;">
-                        <a href="http://localhost:5173" style="display: inline-block; background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: bold;">Ver Dashboard</a>
+                        <a href="{self.dashboard_url}" style="display: inline-block; background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: bold;">Ver Dashboard</a>
                     </div>
                 </div>
 

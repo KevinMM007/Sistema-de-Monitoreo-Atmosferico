@@ -165,11 +165,41 @@ class AlertSystem:
                 if self._compare_levels(level, worst_level) > 0:
                     worst_level = level
         
+        # Construir detalle por contaminante (valor + nivel individual + unidad)
+        # para que el email muestre todos los valores, no solo el AQI global.
+        pollutant_units = {
+            'pm25': 'µg/m³',
+            'pm10': 'µg/m³',
+            'no2':  'µg/m³',
+            'o3':   'µg/m³',
+            'co':   'mg/m³'
+        }
+        pollutant_labels = {
+            'pm25': 'PM2.5',
+            'pm10': 'PM10',
+            'no2':  'NO₂',
+            'o3':   'O₃',
+            'co':   'CO'
+        }
+        pollutant_details = {}
+        for pollutant, value in pollutant_data.items():
+            if pollutant not in self.thresholds:
+                continue
+            p_level = self._get_alert_level(pollutant, value)
+            pollutant_details[pollutant] = {
+                'label': pollutant_labels.get(pollutant, pollutant.upper()),
+                'value': value,
+                'unit': pollutant_units.get(pollutant, ''),
+                'level': p_level,
+                'triggered': p_level not in [AlertLevel.GOOD, AlertLevel.MODERATE]
+            }
+
         # Generar resumen de evaluación
         evaluation = {
             'timestamp': datetime.now().isoformat(),
             'overall_level': worst_level,
             'alerts': alerts,
+            'pollutant_details': pollutant_details,
             'recommendations': self.recommendations[worst_level],
             'aqi': self._calculate_aqi(pollutant_data)
         }
