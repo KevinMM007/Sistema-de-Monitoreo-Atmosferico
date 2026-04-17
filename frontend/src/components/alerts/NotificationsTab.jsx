@@ -7,13 +7,13 @@
  * - Formularios accesibles
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Button, InfoCard } from '../common';
 
 const NotificationsTab = ({
     // Datos de historial
     alertHistory,
-    
+
     // Email subscription
     email,
     setEmail,
@@ -22,7 +22,8 @@ const NotificationsTab = ({
     subscriptionMessage,
     onSubscribe,
     onUnsubscribe,
-    
+    onCheckSubscription,
+
     // Push notifications
     pushPermission,
     onRequestPushPermission,
@@ -43,6 +44,7 @@ const NotificationsTab = ({
                 subscriptionMessage={subscriptionMessage}
                 onSubscribe={onSubscribe}
                 onUnsubscribe={onUnsubscribe}
+                onCheckSubscription={onCheckSubscription}
             />
 
             {/* Notificaciones Push */}
@@ -153,23 +155,40 @@ const EmailNotifications = ({
     subscriptionMessage,
     onSubscribe,
     onUnsubscribe,
+    onCheckSubscription,
 }) => {
     // Generar un ID único para el campo de email
     const emailInputId = 'email-subscription-input';
     const emailDescriptionId = 'email-subscription-description';
     const statusMessageId = 'subscription-status-message';
-    
+
+    // Toggle para el modo "Verificar mi estado" (útil cuando entras desde
+    // otro dispositivo donde localStorage no tiene tu correo guardado).
+    const [isCheckingExisting, setIsCheckingExisting] = useState(false);
+    const [checkInput, setCheckInput] = useState('');
+
     // Handler para suscribir pasando el email directamente
     const handleSubscribe = (e) => {
         e.preventDefault();
         console.log('📧 Click en Suscribir, email actual:', email);
         onSubscribe(email);
     };
-    
+
     // Handler para desuscribir
     const handleUnsubscribe = () => {
         console.log('📧 Click en Desuscribir, email actual:', email);
         onUnsubscribe(email);
+    };
+
+    const handleCheck = async (e) => {
+        e.preventDefault();
+        if (!onCheckSubscription) return;
+        const result = await onCheckSubscription(checkInput);
+        if (result?.active) {
+            // Suscripción encontrada y activa: cerramos el panel
+            setIsCheckingExisting(false);
+            setCheckInput('');
+        }
     };
     
     return (
@@ -185,10 +204,66 @@ const EmailNotifications = ({
             </div>
             
             <p id={emailDescriptionId} className="text-xs sm:text-sm text-gray-600 mb-3 sm:mb-4">
-                Recibe alertas automáticas por correo electrónico cuando los niveles de contaminación 
+                Recibe alertas automáticas por correo electrónico cuando los niveles de contaminación
                 alcancen niveles preocupantes.
             </p>
-            
+
+            {/* Verificación de estado existente (cuando no hay localStorage) */}
+            {!isSubscribed && onCheckSubscription && (
+                <div className="mb-3 sm:mb-4">
+                    {!isCheckingExisting ? (
+                        <button
+                            type="button"
+                            onClick={() => setIsCheckingExisting(true)}
+                            className="text-xs sm:text-sm text-blue-700 hover:text-blue-900 underline focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
+                        >
+                            ¿Ya te suscribiste desde otro dispositivo? Verifica tu estado
+                        </button>
+                    ) : (
+                        <form
+                            onSubmit={handleCheck}
+                            className="bg-white rounded-lg border border-blue-200 p-3 sm:p-4 space-y-2 sm:space-y-3"
+                        >
+                            <label htmlFor="check-existing-email" className="block text-xs sm:text-sm font-medium text-gray-700">
+                                Ingresa tu correo para consultar tu suscripción
+                            </label>
+                            <div className="flex flex-col sm:flex-row gap-2">
+                                <input
+                                    type="email"
+                                    id="check-existing-email"
+                                    placeholder="tu-correo@ejemplo.com"
+                                    value={checkInput}
+                                    onChange={(e) => setCheckInput(e.target.value)}
+                                    required
+                                    className="flex-1 px-3 py-2 border-2 border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                />
+                                <Button
+                                    type="submit"
+                                    variant="primary"
+                                    icon="🔍"
+                                    disabled={subscriptionLoading || !checkInput}
+                                    loading={subscriptionLoading}
+                                    className="whitespace-nowrap"
+                                    ariaLabel="Verificar estado de suscripción"
+                                >
+                                    Verificar
+                                </Button>
+                                <button
+                                    type="button"
+                                    onClick={() => { setIsCheckingExisting(false); setCheckInput(''); }}
+                                    className="text-xs sm:text-sm text-gray-500 hover:text-gray-700 underline px-2 focus:outline-none"
+                                >
+                                    Cancelar
+                                </button>
+                            </div>
+                            <p className="text-xs text-gray-500">
+                                Si ya estás suscrito, cargaremos tu información. Si no, puedes suscribirte abajo.
+                            </p>
+                        </form>
+                    )}
+                </div>
+            )}
+
             {/* Formulario de suscripción */}
             <form onSubmit={handleSubscribe} className="flex flex-col sm:flex-row gap-2 sm:gap-3">
                 <div className="flex-1">

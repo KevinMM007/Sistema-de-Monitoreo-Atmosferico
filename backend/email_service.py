@@ -74,33 +74,35 @@ class EmailService:
             self.configured = True
             logger.info(f"✓ Servicio de email configurado: {self.username}")
     
-    def send_alert_email(self, to_email: str, alert_data: Dict) -> bool:
+    def send_alert_email(self, to_email: str, alert_data: Dict, unsubscribe_token: str = None) -> bool:
         """
         Envía un correo de alerta de calidad del aire
-        
+
         Args:
             to_email: Correo del destinatario
             alert_data: Datos de la alerta con niveles de contaminación
-            
+            unsubscribe_token: Token opaco del suscriptor para construir el
+                link de desuscripción con un clic en el footer del email.
+
         Returns:
             bool: True si se envió exitosamente, False si falló
         """
         if not self.configured:
             logger.warning(f"No se puede enviar correo - servicio no configurado")
             return False
-        
+
         try:
             # Crear mensaje
             msg = MIMEMultipart('alternative')
             msg['Subject'] = self._get_email_subject(alert_data)
             msg['From'] = self.from_email
             msg['To'] = to_email
-            
+
             # Crear contenido HTML
-            html_content = self._create_html_email(alert_data)
-            
+            html_content = self._create_html_email(alert_data, to_email, unsubscribe_token)
+
             # Crear contenido texto plano
-            text_content = self._create_text_email(alert_data)
+            text_content = self._create_text_email(alert_data, to_email, unsubscribe_token)
             
             # Agregar ambas partes
             part1 = MIMEText(text_content, 'plain')
@@ -123,6 +125,20 @@ class EmailService:
             logger.error(f"✗ Error enviando correo a {to_email}: {str(e)}")
             return False
     
+    def _build_unsubscribe_url(self, to_email: str, unsubscribe_token: str) -> str:
+        """
+        Construye la URL de desuscripción con un clic, que apunta a la
+        página `/unsubscribe` del frontend con email y token como query
+        params. El frontend consume el endpoint backend para efectuar la baja.
+        """
+        if not to_email or not unsubscribe_token:
+            return ''
+        from urllib.parse import quote
+        return (
+            f"{self.dashboard_url.rstrip('/')}/unsubscribe"
+            f"?email={quote(to_email)}&token={quote(unsubscribe_token)}"
+        )
+
     def _format_local_datetime(self, iso_timestamp: str) -> datetime:
         """
         Convierte un timestamp ISO (asumido UTC si no trae tzinfo) a la
@@ -157,7 +173,7 @@ class EmailService:
         
         return subjects.get(level, '⚠️ Alerta de Calidad del Aire')
     
-    def _create_text_email(self, alert_data: Dict) -> str:
+    def _create_text_email(self, alert_data: Dict, to_email: str = '', unsubscribe_token: str = None) -> str:
         """Crea versión de texto plano del correo"""
         overall_level = alert_data.get('overall_level')
         level = (overall_level.value if overall_level else 'desconocido').upper()
@@ -211,13 +227,20 @@ Actividades Recomendadas:
         for activity in activities:
             text += f"- {activity}\n"
 
+        unsubscribe_url = self._build_unsubscribe_url(to_email, unsubscribe_token)
+
         text += f"""
 
 ---
 Para más información, visita el dashboard: {self.dashboard_url}
-
-Para desactivar estas notificaciones, ingresa al sistema y desuscríbete.
 """
+        if unsubscribe_url:
+            text += (
+                f"\nPara desuscribirte con un clic, abre este enlace:\n"
+                f"{unsubscribe_url}\n"
+            )
+        else:
+            text += "\nPara desactivar estas notificaciones, ingresa al sistema y desuscríbete.\n"
 
         return text
     
@@ -278,7 +301,7 @@ Para desactivar estas notificaciones, ingresa al sistema y desuscríbete.
         </div>
         """
 
-    def _create_html_email(self, alert_data: Dict) -> str:
+    def _create_html_email(self, alert_data: Dict, to_email: str = '', unsubscribe_token: str = None) -> str:
         """Crea versión HTML del correo con estilos"""
         overall_level = alert_data.get('overall_level')
         level = overall_level.value if overall_level else 'desconocido'
@@ -287,6 +310,7 @@ Para desactivar estas notificaciones, ingresa al sistema y desuscríbete.
         )
         aqi = alert_data.get('aqi', {}).get('overall', 'N/A')
         pollutant_details = alert_data.get('pollutant_details', {})
+        unsubscribe_url = self._build_unsubscribe_url(to_email, unsubscribe_token)
 
         # Colores por nivel individual de cada contaminante
         level_colors = {
@@ -388,7 +412,7 @@ Para desactivar estas notificaciones, ingresa al sistema y desuscríbete.
         
         <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb; text-align: center; font-size: 12px; color: #6b7280;">
             <p>Este es un correo automático del Sistema de Monitoreo de Calidad del Aire de Xalapa.</p>
-            <p>Para desactivar estas notificaciones, accede al sistema y desuscríbete.</p>
+            {'<p>Si ya no deseas recibir estas notificaciones, <a href="' + unsubscribe_url + '" style="color: #6b7280; text-decoration: underline;">desuscríbete con un clic</a>.</p>' if unsubscribe_url else '<p>Para desactivar estas notificaciones, accede al sistema y desuscríbete.</p>'}
         </div>
     </div>
 </body>

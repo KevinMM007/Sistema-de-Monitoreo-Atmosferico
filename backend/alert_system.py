@@ -312,22 +312,27 @@ class AlertSystem:
         
         for email in self.subscribers:
             try:
+                unsubscribe_token = None
                 # Si tenemos acceso a la DB, verificar rate limiting por suscriptor
                 if db:
                     subscription = db.query(models.AlertSubscription).filter(
                         models.AlertSubscription.email == email,
                         models.AlertSubscription.is_active == True
                     ).first()
-                    
-                    if subscription and subscription.last_notification_sent:
-                        time_since_last = current_time - subscription.last_notification_sent
-                        if time_since_last < self.min_notification_interval:
-                            logger.info(f"Omitiendo {email} - última notificación hace {time_since_last}")
-                            skipped_count += 1
-                            continue
-                
-                # Enviar correo
-                success = self.email_service.send_alert_email(email, evaluation)
+
+                    if subscription:
+                        unsubscribe_token = subscription.unsubscribe_token
+                        if subscription.last_notification_sent:
+                            time_since_last = current_time - subscription.last_notification_sent
+                            if time_since_last < self.min_notification_interval:
+                                logger.info(f"Omitiendo {email} - última notificación hace {time_since_last}")
+                                skipped_count += 1
+                                continue
+
+                # Enviar correo (con token para el link de desuscripción)
+                success = self.email_service.send_alert_email(
+                    email, evaluation, unsubscribe_token=unsubscribe_token
+                )
                 if success:
                     sent_count += 1
                     

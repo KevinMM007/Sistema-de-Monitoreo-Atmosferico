@@ -147,6 +147,9 @@ class AlertSubscription(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     last_notification_sent = Column(DateTime, nullable=True)
     notification_count = Column(Integer, default=0)
+    # Token opaco usado para permitir desuscripción con un clic desde el
+    # correo (link en el footer del email). Se genera al crear/reactivar.
+    unsubscribe_token = Column(String, nullable=True, index=True)
 
     def to_dict(self):
         return {
