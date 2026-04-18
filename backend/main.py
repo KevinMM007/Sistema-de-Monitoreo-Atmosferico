@@ -350,6 +350,133 @@ async def test_database(db: Session = Depends(get_db)):
     except Exception as e:
         return {"error": f"Database test failed: {str(e)}"}
 
+
+# ============================================================================
+# ENDPOINT TEMPORAL — Exportación de datos para análisis de tesis (Capítulo VI)
+# ----------------------------------------------------------------------------
+# Este endpoint expone datos de sólo-lectura de las tablas relevantes para
+# construir métricas descriptivas de la tesis. Está gated por un token simple
+# que se define vía variable de entorno THESIS_EXPORT_TOKEN. Si la variable no
+# está configurada, el endpoint devuelve 503 y no expone datos.
+#
+# ELIMINAR este endpoint (y el token en Render) una vez terminado el análisis.
+# ============================================================================
+@app.get("/api/thesis-export", tags=["🔧 Diagnóstico"], summary="(Temporal) Exportar datos para análisis de tesis")
+async def thesis_export(
+    table: str,
+    token: str,
+    offset: int = 0,
+    limit: int = 5000,
+    db: Session = Depends(get_db)
+):
+    """
+    Endpoint temporal de exportación para el Capítulo VI de la tesis.
+
+    Tablas disponibles: counts, air_quality_readings, traffic_data,
+    quadrant_statistics, air_quality_predictions, alert_subscriptions_stats.
+
+    Ejemplo:
+        GET /api/thesis-export?table=counts&token=XXX
+        GET /api/thesis-export?table=air_quality_readings&offset=0&limit=5000&token=XXX
+    """
+    expected_token = os.getenv("THESIS_EXPORT_TOKEN")
+    if not expected_token:
+        raise HTTPException(status_code=503, detail="Export endpoint disabled (no token configured)")
+    if token != expected_token:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    # Clamp limit
+    limit = max(1, min(limit, 10000))
+
+    try:
+        if table == "counts":
+            return {
+                "air_quality_readings": db.query(models.AirQualityReading).count(),
+                "traffic_data": db.query(models.TrafficData).count(),
+                "quadrant_statistics": db.query(models.QuadrantStatistics).count(),
+                "air_quality_predictions": db.query(models.AirQualityPrediction).count(),
+                "alert_subscriptions": db.query(models.AlertSubscription).count(),
+                "alert_subscriptions_active": db.query(models.AlertSubscription).filter(models.AlertSubscription.is_active == True).count(),
+                "timestamp_range_readings": {
+                    "oldest": (db.query(func.min(models.AirQualityReading.timestamp)).scalar() or datetime.min).isoformat(),
+                    "newest": (db.query(func.max(models.AirQualityReading.timestamp)).scalar() or datetime.min).isoformat(),
+                }
+            }
+
+        elif table == "air_quality_readings":
+            rows = (db.query(models.AirQualityReading)
+                    .order_by(models.AirQualityReading.id.asc())
+                    .offset(offset).limit(limit).all())
+            return {
+                "offset": offset, "limit": limit, "count": len(rows),
+                "rows": [{
+                    "id": r.id,
+                    "timestamp": r.timestamp.isoformat() if r.timestamp else None,
+                    "latitude": r.latitude, "longitude": r.longitude,
+                    "pm25": r.pm25, "pm10": r.pm10, "no2": r.no2, "o3": r.o3, "co": r.co,
+                    "source": r.source
+                } for r in rows]
+            }
+
+        elif table == "traffic_data":
+            rows = (db.query(models.TrafficData)
+                    .order_by(models.TrafficData.id.asc())
+                    .offset(offset).limit(limit).all())
+            return {
+                "offset": offset, "limit": limit, "count": len(rows),
+                "rows": [{
+                    "id": r.id,
+                    "timestamp": r.timestamp.isoformat() if r.timestamp else None,
+                    "latitude": r.latitude, "longitude": r.longitude,
+                    "speed": r.speed, "road_name": r.road_name, "traffic_level": r.traffic_level
+                } for r in rows]
+            }
+
+        elif table == "quadrant_statistics":
+            rows = (db.query(models.QuadrantStatistics)
+                    .order_by(models.QuadrantStatistics.id.asc())
+                    .offset(offset).limit(limit).all())
+            return {
+                "offset": offset, "limit": limit, "count": len(rows),
+                "rows": [r.to_dict() for r in rows]
+            }
+
+        elif table == "air_quality_predictions":
+            rows = (db.query(models.AirQualityPrediction)
+                    .order_by(models.AirQualityPrediction.id.asc())
+                    .offset(offset).limit(limit).all())
+            return {
+                "offset": offset, "limit": limit, "count": len(rows),
+                "rows": [r.to_dict() for r in rows]
+            }
+
+        elif table == "alert_subscriptions_stats":
+            # Sólo agregados — sin PII (emails)
+            total = db.query(models.AlertSubscription).count()
+            active = db.query(models.AlertSubscription).filter(models.AlertSubscription.is_active == True).count()
+            with_notif = db.query(models.AlertSubscription).filter(models.AlertSubscription.notification_count > 0).count()
+            total_notifs = db.query(func.sum(models.AlertSubscription.notification_count)).scalar() or 0
+            first_sub = db.query(func.min(models.AlertSubscription.created_at)).scalar()
+            last_sub = db.query(func.max(models.AlertSubscription.created_at)).scalar()
+            return {
+                "total": total,
+                "active": active,
+                "inactive": total - active,
+                "with_notifications_sent": with_notif,
+                "total_notifications_sent": int(total_notifs),
+                "first_subscription_at": first_sub.isoformat() if first_sub else None,
+                "last_subscription_at": last_sub.isoformat() if last_sub else None,
+            }
+
+        else:
+            raise HTTPException(status_code=400, detail=f"Unknown table: {table}")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Export error: {str(e)}")
+
+
 @app.get("/api/diagnostics", tags=["🔧 Diagnóstico"], summary="Obtener diagnóstico completo del sistema")
 async def get_diagnostics():
     """
