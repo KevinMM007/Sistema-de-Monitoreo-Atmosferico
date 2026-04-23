@@ -1012,16 +1012,17 @@ async def get_zones_osm_analysis():
             'data_source': 'OpenStreetMap'
         }
         
-        # Solo cachear si al menos una zona tiene datos reales de OSM
-        # (no cachear respuestas donde todas las zonas cayeron a factores por defecto,
-        # para permitir que el sistema se recupere cuando Overpass vuelva a estar disponible)
+        # Solo cachear si al menos una zona tiene datos reales de OSM.
+        # Si Overpass está caído, el circuit breaker en osm_analyzer_optimized (10 min)
+        # evita que cada request pegue a Overpass; los resultados con defaults se generan
+        # en memoria al instante y no necesitan caché persistente.
         has_real_data = any(
             not z.get('using_defaults') and not z.get('metrics', {}).get('error')
             for z in results
         )
         if has_real_data:
             osm_cache.set(cache_key, response_data)
-        
+
         return response_data
         
     except Exception as e:

@@ -48,8 +48,14 @@ load_dotenv()
 
 class TomTomTrafficCollector:
     def __init__(self):
-        # Leer API key del .env
-        self.api_key = os.getenv('TOMTOM_API_KEY', 'W5vAkX8Aygts7V9YpFPMVLh6lNKq5zyv')
+        # Leer API key del .env. Sin fallback: si falta, el servicio debe fallar explícitamente
+        # en lugar de usar una clave hardcoded que podría terminar en el historial público.
+        self.api_key = os.getenv('TOMTOM_API_KEY')
+        if not self.api_key:
+            raise RuntimeError(
+                "TOMTOM_API_KEY no está definida en el entorno. "
+                "Configúrala en backend/.env (desarrollo) o en el dashboard de Render (producción)."
+            )
         self.base_url = 'https://api.tomtom.com/traffic/services/4/flowSegmentData/absolute/10/json'
         
         # Coordenadas de VÍAS PRINCIPALES en Xalapa para monitoreo de tráfico
