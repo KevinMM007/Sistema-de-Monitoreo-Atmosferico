@@ -34,7 +34,12 @@ class OSMCache:
         self.cache_dir = cache_dir
         self.cache_file = os.path.join(cache_dir, "osm_zones_cache.json")
         self.cache_duration = timedelta(days=30)  # Caché válido por 30 días (infraestructura OSM cambia poco)
-        
+
+        # Seed pre-populado (commiteado al repo). Nunca expira. Sirve como fallback
+        # permanente cuando Overpass está degradado y no podemos refrescar el caché fresh.
+        # Se genera localmente con: python scripts/populate_osm_seed.py
+        self.seed_file = os.path.join(os.path.dirname(__file__), "osm_zones_seed.json")
+
         # Crear directorio de caché si no existe
         os.makedirs(cache_dir, exist_ok=True)
     
@@ -93,6 +98,32 @@ class OSMCache:
                 os.remove(self.cache_file)
         except Exception as e:
             print(f"Error limpiando caché: {str(e)}")
+
+    def get_seed(self, key: str) -> Optional[Dict]:
+        """
+        Lee datos del archivo seed pre-populado (sin expiración).
+
+        El seed se genera localmente y se commitea al repo, sirviendo como
+        fallback permanente cuando Overpass está degradado. No debe modificarse
+        desde el runtime del backend.
+        """
+        try:
+            if not os.path.exists(self.seed_file):
+                return None
+
+            with open(self.seed_file, 'r', encoding='utf-8') as f:
+                seed_data = json.load(f)
+
+            if key not in seed_data:
+                return None
+
+            # El seed comparte el mismo formato que el caché runtime:
+            # { key: { 'data': {...}, 'timestamp': '...' } }
+            return seed_data[key].get('data')
+
+        except Exception as e:
+            print(f"Error leyendo seed: {str(e)}")
+            return None
 
 # Instancia global
 osm_cache = OSMCache()

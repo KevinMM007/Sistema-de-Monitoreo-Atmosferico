@@ -1041,17 +1041,28 @@ async def get_zones_osm_analysis():
             'data_source': 'OpenStreetMap'
         }
         
-        # Solo cachear si al menos una zona tiene datos reales de OSM.
-        # Si Overpass está caído, el circuit breaker en osm_analyzer_optimized (10 min)
-        # evita que cada request pegue a Overpass; los resultados con defaults se generan
-        # en memoria al instante y no necesitan caché persistente.
+        # Cachear SOLO si al menos una zona tiene datos reales de OSM.
         has_real_data = any(
             not z.get('using_defaults') and not z.get('metrics', {}).get('error')
             for z in results
         )
         if has_real_data:
             osm_cache.set(cache_key, response_data)
+            return response_data
 
+        # Overpass degradado y sin caché fresh: intentar el seed pre-populado.
+        # El seed se genera localmente con scripts/populate_osm_seed.py y se commitea
+        # al repo. Contiene datos REALES de OSM del día que se ejecutó el script, y
+        # nunca expira. Solo lo usamos como último recurso antes de caer a factores
+        # hardcodeados (que es lo que `results` ya trae cuando llegamos aquí).
+        seed_data = osm_cache.get_seed(cache_key)
+        if seed_data:
+            print("📦 Overpass degradado, usando seed pre-populado con datos reales de OSM")
+            seed_data['timestamp'] = datetime.now().isoformat()
+            seed_data['data_source'] = 'OpenStreetMap (seed pre-populated)'
+            return seed_data
+
+        # Sin seed disponible: devolvemos los factores base hardcodeados
         return response_data
         
     except Exception as e:
