@@ -31,6 +31,7 @@ VERSIÓN: 2.1.0
 """
 
 import os
+import asyncio
 from typing import Optional, List
 from datetime import datetime, date, time, timedelta
 from fastapi import FastAPI, HTTPException, Depends, Request
@@ -993,18 +994,46 @@ async def get_zones_osm_analysis():
             {'name': 'Oeste', 'bounds': [[19.4900, -97.0200], [19.5900, -96.9250]]}
         ]
         
-        results = []
-        for zone in zones:
-            try:
-                analysis = osm_analyzer.analyze_zone(zone['name'], zone['bounds'])
-                results.append(analysis)
-            except Exception as e:
-                print(f"Error analizando zona {zone['name']}: {str(e)}")
-                results.append({
-                    'zone_name': zone['name'],
-                    'metrics': {'error': 'No se pudieron obtener datos de OSM', 'using_defaults': True},
-                    'pollution_factor': 1.0
-                })
+        # IMPORTANTE: analyze_zone() hace llamadas HTTP síncronas con requests.post()
+        # que bloquearían el event loop de uvicorn. Con --workers 1, eso impide que
+        # /api/health responda durante la ejecución y Render mata al worker por
+        # health-check failed (~30s). Lo ejecutamos en un thread executor para
+        # mantener el event loop libre durante los Overpass calls.
+        def _analyze_all_zones_blocking():
+            out = []
+            for zone in zones:
+                try:
+                    out.append(osm_analyzer.analyze_zone(zone['name'], zone['bounds']))
+                except Exception as ex:
+                    print(f"Error analizando zona {zone['name']}: {str(ex)}")
+                    out.append({
+                        'zone_name': zone['name'],
+                        'metrics': {'error': 'No se pudieron obtener datos de OSM', 'using_defaults': True},
+                        'pollution_factor': 1.0,
+                        'using_defaults': True
+                    })
+            return out
+
+        # Timeout defensivo: si todo tarda más de 90s, abortamos y usamos defaults.
+        # Con circuit breaker activo cada zona debería resolver en <1s; con Overpass
+        # sano, ~5-10s por zona × 5 zonas ≈ 25-50s. 90s deja margen sin arriesgar
+        # que Render nos mate.
+        try:
+            results = await asyncio.wait_for(
+                asyncio.to_thread(_analyze_all_zones_blocking),
+                timeout=90.0
+            )
+        except asyncio.TimeoutError:
+            print("⚠️ OSM analysis superó 90s, usando factores por defecto")
+            results = [
+                {
+                    'zone_name': z['name'],
+                    'metrics': {'error': 'OSM timeout', 'using_defaults': True},
+                    'pollution_factor': osm_analyzer.zone_base_factors.get(z['name'], 1.0),
+                    'using_defaults': True
+                }
+                for z in zones
+            ]
         
         response_data = {
             'zones': results,
