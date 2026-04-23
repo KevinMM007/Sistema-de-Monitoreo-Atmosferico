@@ -34,12 +34,22 @@ class OSMAnalyzer:
     
     def __init__(self):
         self.overpass_url = "https://overpass-api.de/api/interpreter"
-        
+
+        # Overpass API rechaza peticiones sin User-Agent descriptivo (406 Not Acceptable).
+        # Identificamos el proyecto y un contacto válido según los Terms of Use de Overpass.
+        self.http_headers = {
+            'User-Agent': 'air-quality-xalapa/2.2 (contact: moralesmonterok@gmail.com)',
+            'Accept': 'application/json',
+        }
+
         # Circuit breaker para OSM
         self.osm_unavailable_until: Optional[datetime] = None
         self.consecutive_failures = 0
         self.last_request_time = 0
         self.min_request_interval = 2.0  # Segundos entre requests
+        # Umbral de fallos consecutivos antes de abrir el breaker para CUALQUIER error
+        # (no solo 429). Con esto, 406/504/timeouts también activan la pausa.
+        self.failure_threshold = 2
         
         # Pesos para diferentes tipos de vías
         self.road_weights = {
@@ -97,36 +107,35 @@ class OSMAnalyzer:
         
         try:
             response = requests.post(
-                self.overpass_url, 
-                data={'data': query}, 
-                timeout=30
+                self.overpass_url,
+                data={'data': query},
+                headers=self.http_headers,
+                timeout=15
             )
-            
+
             if response.status_code == 200:
                 # Request exitoso - resetear contador de fallos
                 self.consecutive_failures = 0
                 data = response.json()
                 return data.get('elements', [])
-            
-            elif response.status_code == 429:
-                # Rate limit detectado
-                self.consecutive_failures += 1
-                logger.error(f"OSM Rate limit (429) en {query_type}. Fallo #{self.consecutive_failures}")
-                
-                # Activar circuit breaker después de 2 fallos
-                if self.consecutive_failures >= 2:
-                    self._activate_circuit_breaker(minutes=10)
-                
-                return []
-            
-            else:
-                logger.error(f"Error OSM ({response.status_code}) en {query_type}")
-                self.consecutive_failures += 1
-                return []
-                
+
+            # Cualquier error HTTP cuenta para el circuit breaker, no solo 429.
+            # Overpass devuelve 406 cuando rechaza el User-Agent, 504 en timeouts del servidor
+            # y 429 en rate limit; todos deben pausar las consultas.
+            self.consecutive_failures += 1
+            logger.error(
+                f"Error OSM ({response.status_code}) en {query_type}. "
+                f"Fallo #{self.consecutive_failures}/{self.failure_threshold}"
+            )
+            if self.consecutive_failures >= self.failure_threshold:
+                self._activate_circuit_breaker(minutes=10)
+            return []
+
         except Exception as e:
             logger.error(f"Excepción en consulta OSM ({query_type}): {str(e)}")
             self.consecutive_failures += 1
+            if self.consecutive_failures >= self.failure_threshold:
+                self._activate_circuit_breaker(minutes=10)
             return []
 
     def get_zone_bounds(self, bounds: List[List[float]]) -> str:
