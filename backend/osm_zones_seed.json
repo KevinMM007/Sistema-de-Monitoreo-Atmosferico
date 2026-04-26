@@ -1,0 +1,131 @@
+{
+  "xalapa_zones_analysis": {
+    "data": {
+      "zones": [
+        {
+          "zone_name": "Centro",
+          "metrics": {
+            "zone_area_km2": 12.24,
+            "total_road_length_km": 329.14,
+            "road_density_km_per_km2": 26.9,
+            "weighted_road_density": 7.514,
+            "main_roads_count": 214,
+            "secondary_roads_count": 1705,
+            "commercial_zones": 1,
+            "industrial_zones": 5,
+            "schools": 20,
+            "hospitals": 2,
+            "parking_areas": 24,
+            "total_pois": 209
+          },
+          "pollution_factor": 1.2,
+          "data_sources": {
+            "roads": 2315,
+            "landuse": 1722,
+            "pois": 209
+          },
+          "using_defaults": false
+        },
+        {
+          "zone_name": "Norte",
+          "metrics": {
+            "zone_area_km2": 55.93,
+            "total_road_length_km": 713.04,
+            "road_density_km_per_km2": 12.75,
+            "weighted_road_density": 3.746,
+            "main_roads_count": 205,
+            "secondary_roads_count": 4123,
+            "commercial_zones": 0,
+            "industrial_zones": 5,
+            "schools": 1,
+            "hospitals": 2,
+            "parking_areas": 0,
+            "total_pois": 24
+          },
+          "pollution_factor": 1.07,
+          "data_sources": {
+            "roads": 4736,
+            "landuse": 1426,
+            "pois": 24
+          },
+          "using_defaults": false
+        },
+        {
+          "zone_name": "Sur",
+          "metrics": {
+            "zone_area_km2": 41.96,
+            "total_road_length_km": 521.21,
+            "road_density_km_per_km2": 12.42,
+            "weighted_road_density": 3.32,
+            "main_roads_count": 153,
+            "secondary_roads_count": 2377,
+            "commercial_zones": 3,
+            "industrial_zones": 5,
+            "schools": 7,
+            "hospitals": 0,
+            "parking_areas": 1,
+            "total_pois": 96
+          },
+          "pollution_factor": 1.04,
+          "data_sources": {
+            "roads": 3450,
+            "landuse": 2676,
+            "pois": 96
+          },
+          "using_defaults": false
+        },
+        {
+          "zone_name": "Este",
+          "metrics": {
+            "zone_area_km2": 116.56,
+            "total_road_length_km": 907.76,
+            "road_density_km_per_km2": 7.79,
+            "weighted_road_density": 2.313,
+            "main_roads_count": 211,
+            "secondary_roads_count": 3848,
+            "commercial_zones": 2,
+            "industrial_zones": 9,
+            "schools": 15,
+            "hospitals": 0,
+            "parking_areas": 1,
+            "total_pois": 86
+          },
+          "pollution_factor": 1.06,
+          "data_sources": {
+            "roads": 5202,
+            "landuse": 2504,
+            "pois": 86
+          },
+          "using_defaults": false
+        },
+        {
+          "zone_name": "Oeste",
+          "metrics": {
+            "zone_area_km2": 110.73,
+            "total_road_length_km": 735.82,
+            "road_density_km_per_km2": 6.65,
+            "weighted_road_density": 1.817,
+            "main_roads_count": 281,
+            "secondary_roads_count": 3197,
+            "commercial_zones": 7,
+            "industrial_zones": 5,
+            "schools": 15,
+            "hospitals": 1,
+            "parking_areas": 7,
+            "total_pois": 111
+          },
+          "pollution_factor": 1.09,
+          "data_sources": {
+            "roads": 4073,
+            "landuse": 2368,
+            "pois": 111
+          },
+          "using_defaults": false
+        }
+      ],
+      "timestamp": "2026-04-25T18:16:44.088149",
+      "data_source": "OpenStreetMap (seed pre-populated)"
+    },
+    "timestamp": "2026-04-25T18:16:44.088155"
+  }
+}

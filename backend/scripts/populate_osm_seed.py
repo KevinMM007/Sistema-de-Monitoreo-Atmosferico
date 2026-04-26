@@ -72,39 +72,39 @@ SEED_FILE = os.path.join(BACKEND_DIR, 'osm_zones_seed.json')
 
 def process_zone(analyzer: OSMAnalyzer, zone: dict, attempt: int = 1) -> dict:
     """Procesa una zona y retorna el resultado, con reintento en caso de fallo."""
-    print(f"  → analyze_zone(name={zone['name']}, bounds={zone['bounds']}) [intento {attempt}]")
+    print(f"  -> analyze_zone(name={zone['name']}, bounds={zone['bounds']}) [intento {attempt}]", flush=True)
     result = analyzer.analyze_zone(zone['name'], zone['bounds'])
 
     if result.get('using_defaults'):
         if attempt < 2:
-            print(f"  ⚠️  {zone['name']} cayó a defaults. Esperando {RETRY_DELAY_ON_FAIL_S}s y reintentando...")
+            print(f"  [WARN] {zone['name']} cayo a defaults. Esperando {RETRY_DELAY_ON_FAIL_S}s y reintentando...", flush=True)
             # Resetear circuit breaker para darle otra oportunidad
             analyzer.consecutive_failures = 0
             analyzer.osm_unavailable_until = None
             time.sleep(RETRY_DELAY_ON_FAIL_S)
             return process_zone(analyzer, zone, attempt=attempt + 1)
         else:
-            print(f"  ❌ {zone['name']} sigue fallando tras reintento. Marcando en defaults en el seed.")
+            print(f"  [FAIL] {zone['name']} sigue fallando tras reintento. Marcando en defaults en el seed.", flush=True)
     else:
         sources = result.get('data_sources', {})
-        print(f"  ✓ {zone['name']} OK — roads={sources.get('roads', 0)}, "
-              f"landuse={sources.get('landuse', 0)}, pois={sources.get('pois', 0)}")
+        print(f"  [OK] {zone['name']} - roads={sources.get('roads', 0)}, "
+              f"landuse={sources.get('landuse', 0)}, pois={sources.get('pois', 0)}", flush=True)
 
     return result
 
 
 def main():
-    print("=" * 70)
-    print("POBLACIÓN DE SEED DE OSM — Xalapa, Veracruz")
-    print("=" * 70)
-    print(f"Inicio: {datetime.now().isoformat()}")
-    print(f"Archivo destino: {SEED_FILE}")
-    print(f"Zonas a procesar: {len(ZONES)}")
-    print(f"Delay entre requests: {DELAY_BETWEEN_REQUESTS_S}s")
-    print(f"Delay entre zonas: {DELAY_BETWEEN_ZONES_S}s")
-    print(f"Tiempo estimado total: ~{(len(ZONES) * 3 * DELAY_BETWEEN_REQUESTS_S + (len(ZONES) - 1) * DELAY_BETWEEN_ZONES_S) // 60} minutos")
-    print("=" * 70)
-    print()
+    print("=" * 70, flush=True)
+    print("POBLACION DE SEED DE OSM - Xalapa, Veracruz", flush=True)
+    print("=" * 70, flush=True)
+    print(f"Inicio: {datetime.now().isoformat()}", flush=True)
+    print(f"Archivo destino: {SEED_FILE}", flush=True)
+    print(f"Zonas a procesar: {len(ZONES)}", flush=True)
+    print(f"Delay entre requests: {DELAY_BETWEEN_REQUESTS_S}s", flush=True)
+    print(f"Delay entre zonas: {DELAY_BETWEEN_ZONES_S}s", flush=True)
+    print(f"Tiempo estimado total: ~{(len(ZONES) * 3 * DELAY_BETWEEN_REQUESTS_S + (len(ZONES) - 1) * DELAY_BETWEEN_ZONES_S) // 60} minutos", flush=True)
+    print("=" * 70, flush=True)
+    print(flush=True)
 
     analyzer = OSMAnalyzer()
     # Forzar pausas largas para no disparar rate limit
@@ -116,19 +116,19 @@ def main():
         try:
             with open(SEED_FILE, 'r', encoding='utf-8') as f:
                 existing_seed = json.load(f)
-            print(f"ℹ️  Seed existente encontrado, se sobreescribirá si el run completa exitosamente.")
-            print()
+            print("[INFO] Seed existente encontrado, se sobreescribira si el run completa exitosamente.", flush=True)
+            print(flush=True)
         except Exception as e:
-            print(f"⚠️  No se pudo leer seed existente: {e}")
+            print(f"[WARN] No se pudo leer seed existente: {e}", flush=True)
 
     results = []
     for i, zone in enumerate(ZONES, 1):
-        print(f"[{i}/{len(ZONES)}] Procesando zona: {zone['name']}")
+        print(f"[{i}/{len(ZONES)}] Procesando zona: {zone['name']}", flush=True)
         try:
             result = process_zone(analyzer, zone)
             results.append(result)
         except Exception as e:
-            print(f"  ❌ Excepción procesando {zone['name']}: {e}")
+            print(f"  [ERROR] Excepcion procesando {zone['name']}: {e}", flush=True)
             results.append({
                 'zone_name': zone['name'],
                 'metrics': {'error': str(e), 'using_defaults': True},
@@ -138,8 +138,8 @@ def main():
             })
 
         if i < len(ZONES):
-            print(f"  ⏸  Pausa de {DELAY_BETWEEN_ZONES_S}s antes de la siguiente zona...")
-            print()
+            print(f"  [WAIT] Pausa de {DELAY_BETWEEN_ZONES_S}s antes de la siguiente zona...", flush=True)
+            print(flush=True)
             time.sleep(DELAY_BETWEEN_ZONES_S)
 
     # Construir el seed con el mismo formato que osm_cache usa
@@ -159,40 +159,40 @@ def main():
         json.dump(seed_payload, f, ensure_ascii=False, indent=2)
 
     # Resumen
-    print()
-    print("=" * 70)
-    print("RESUMEN")
-    print("=" * 70)
+    print(flush=True)
+    print("=" * 70, flush=True)
+    print("RESUMEN", flush=True)
+    print("=" * 70, flush=True)
     zones_with_real_data = sum(1 for r in results if not r.get('using_defaults'))
-    print(f"Zonas con datos reales: {zones_with_real_data}/{len(ZONES)}")
+    print(f"Zonas con datos reales: {zones_with_real_data}/{len(ZONES)}", flush=True)
     for r in results:
-        label = "✓" if not r.get('using_defaults') else "⚠️"
+        label = "[OK]  " if not r.get('using_defaults') else "[WARN]"
         sources = r.get('data_sources', {})
         print(f"  {label} {r['zone_name']:<8} pollution_factor={r.get('pollution_factor'):.2f}  "
-              f"roads={sources.get('roads', 0)}  landuse={sources.get('landuse', 0)}  pois={sources.get('pois', 0)}")
-    print()
+              f"roads={sources.get('roads', 0)}  landuse={sources.get('landuse', 0)}  pois={sources.get('pois', 0)}", flush=True)
+    print(flush=True)
 
     if zones_with_real_data == len(ZONES):
-        print("🎉 Perfecto: las 5 zonas tienen datos reales de OSM.")
-        print()
-        print("Siguiente paso — commit y push:")
-        print("  git add backend/osm_zones_seed.json")
-        print("  git commit -m 'chore(osm): regenerar seed de Xalapa'")
-        print("  git push")
+        print("[SUCCESS] Perfecto: las 5 zonas tienen datos reales de OSM.", flush=True)
+        print(flush=True)
+        print("Siguiente paso - commit y push:", flush=True)
+        print("  git add backend/osm_zones_seed.json", flush=True)
+        print("  git commit -m 'chore(osm): regenerar seed de Xalapa'", flush=True)
+        print("  git push", flush=True)
     elif zones_with_real_data > 0:
-        print(f"⚠️  Parcial: {zones_with_real_data} zonas con datos reales, "
-              f"{len(ZONES) - zones_with_real_data} cayeron a defaults.")
-        print("    Puedes re-ejecutar el script en unas horas para completar.")
-        print("    El seed ya está escrito con lo que se obtuvo; si decides commitearlo,")
-        print("    las zonas faltantes se servirán con factores base hardcodeados.")
+        print(f"[WARN] Parcial: {zones_with_real_data} zonas con datos reales, "
+              f"{len(ZONES) - zones_with_real_data} cayeron a defaults.", flush=True)
+        print("    Puedes re-ejecutar el script en unas horas para completar.", flush=True)
+        print("    El seed ya esta escrito con lo que se obtuvo; si decides commitearlo,", flush=True)
+        print("    las zonas faltantes se serviran con factores base hardcodeados.", flush=True)
     else:
-        print("❌ Ninguna zona obtuvo datos reales. Overpass está muy degradado.")
-        print("    Espera unas horas y vuelve a intentarlo. NO commitees este seed.")
-        print(f"    Puedes borrarlo con: rm {SEED_FILE}")
+        print("[FAIL] Ninguna zona obtuvo datos reales. Overpass esta muy degradado.", flush=True)
+        print("    Espera unas horas y vuelve a intentarlo. NO commitees este seed.", flush=True)
+        print(f"    Puedes borrarlo con: rm {SEED_FILE}", flush=True)
 
-    print()
-    print(f"Fin: {datetime.now().isoformat()}")
-    print("=" * 70)
+    print(flush=True)
+    print(f"Fin: {datetime.now().isoformat()}", flush=True)
+    print("=" * 70, flush=True)
 
 
 if __name__ == '__main__':
