@@ -225,7 +225,7 @@ El sistema entrena un modelo independiente por contaminante. Snapshot del últim
 ### 1. Clonar el repositorio (rama `version-final-beta`)
 
 ```bash
-git clone -b version-final-beta https://github.com/KevinMM007/Sistema-de-Monitoreo-Atmosferico.git
+git clone -b main https://github.com/KevinMM007/Sistema-de-Monitoreo-Atmosferico.git
 cd Sistema-de-Monitoreo-Atmosferico
 ```
 
@@ -473,4 +473,4 @@ El repositorio incluye documentación complementaria en la raíz:
 
 Sistema desarrollado como proyecto de residencia profesional (Tesis) para el monitoreo de calidad del aire en Xalapa, Veracruz.
 
-Versión 2.1.0 — Última actualización: Diciembre 2025.
+Versión 2.1.0 — Última actualización: Abril de 2026.
