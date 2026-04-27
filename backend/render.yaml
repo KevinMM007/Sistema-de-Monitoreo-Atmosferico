@@ -8,7 +8,7 @@ services:
     runtime: python
     region: oregon  # Región más cercana a México
     plan: free
-    branch: version-final-beta
+    branch: main
     rootDir: backend
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn main:app --workers 1 --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT --timeout 300 --graceful-timeout 300 --keep-alive 5
