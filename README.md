@@ -473,4 +473,4 @@ El repositorio incluye documentación complementaria en la raíz:
 
 Sistema desarrollado como proyecto de residencia profesional (Tesis) para el monitoreo de calidad del aire en Xalapa, Veracruz.
 
-Versión 2.1.0 — Última actualización: Diciembre 2025.
+Versión 2.1.0 — Última actualización: Abril 2026.
