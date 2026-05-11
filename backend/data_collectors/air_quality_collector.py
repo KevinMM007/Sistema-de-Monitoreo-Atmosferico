@@ -118,6 +118,14 @@ class OpenMeteoCollector:
         self._cache_timestamp = None
         self._cache_duration = timedelta(minutes=5)  # Caché válido por 5 minutos
 
+        # 🆕 Caché independiente para datos meteorológicos.
+        # Open-Meteo Weather API rate-limita agresivo (429) cuando el frontend
+        # consulta /api/weather en cada render. Cacheamos 5 minutos y, si la
+        # API falla, devolvemos el ultimo valor cacheado aunque haya expirado.
+        self._weather_cache_data = None
+        self._weather_cache_timestamp = None
+        self._weather_cache_duration = timedelta(minutes=5)
+
     def get_status(self):
         """Retorna el estado actual del colector para diagnóstico"""
         mexico_now = get_mexico_time()
@@ -303,10 +311,27 @@ class OpenMeteoCollector:
     async def get_weather_data(self):
         """
         Obtiene datos meteorológicos de Open Meteo.
-        
+
         Fuente: Open Meteo Weather API
         Documentación: https://open-meteo.com/en/docs
+
+        Estrategia anti rate-limit:
+        1. Si hay caché valido (<5 min): devolverlo sin pegarle a la API.
+        2. Si no hay caché valido: consultar Open-Meteo.
+        3. Si la consulta falla (429, timeout, etc.): devolver el ultimo
+           valor cacheado aunque haya expirado. Datos un poco viejos son
+           mejor que romper el dashboard. Solo devolvemos None si nunca
+           hemos tenido datos.
         """
+        # 1. Cache vigente -> devolver directo.
+        if self._weather_cache_data is not None and self._weather_cache_timestamp is not None:
+            age = get_mexico_time() - self._weather_cache_timestamp
+            if age < self._weather_cache_duration:
+                cached = dict(self._weather_cache_data)
+                cached["cache_age_seconds"] = age.total_seconds()
+                return cached
+
+        # 2. Intentar consulta fresca.
         try:
             params = {
                 "latitude": self.latitude,
@@ -316,11 +341,11 @@ class OpenMeteoCollector:
             }
 
             response = requests.get(self.weather_url, params=params, timeout=10)
-            
+
             if response.status_code == 200:
                 data = response.json()
                 current = data.get('current', {})
-                return {
+                fresh = {
                     "temperature": current.get('temperature_2m'),
                     "humidity": current.get('relative_humidity_2m'),
                     "wind_speed": current.get('wind_speed_10m'),
@@ -331,11 +356,33 @@ class OpenMeteoCollector:
                     "is_real_data": True,
                     "fetch_timestamp": get_mexico_time().isoformat()
                 }
+                # Guardar en caché.
+                self._weather_cache_data = fresh
+                self._weather_cache_timestamp = get_mexico_time()
+                return fresh
+
             print(f"Error en la petición meteorológica: {response.status_code}")
-            return None
+            # 3. API fallo -> degradar a caché viejo si existe.
+            return self._stale_weather_fallback(reason=f"http_{response.status_code}")
         except Exception as e:
             print(f"Error obteniendo datos meteorológicos: {str(e)}")
+            return self._stale_weather_fallback(reason="exception")
+
+    def _stale_weather_fallback(self, reason: str):
+        """
+        Devuelve el ultimo valor cacheado de weather aunque haya expirado.
+        Marca el payload con stale=True para que el frontend pueda mostrarlo
+        diferente si quiere. Devuelve None si nunca se cacheo nada.
+        """
+        if self._weather_cache_data is None or self._weather_cache_timestamp is None:
             return None
+        age = (get_mexico_time() - self._weather_cache_timestamp).total_seconds()
+        print(f"  ⚠️ Devolviendo weather cache stale (edad: {age:.0f}s, motivo: {reason})")
+        stale = dict(self._weather_cache_data)
+        stale["stale"] = True
+        stale["stale_reason"] = reason
+        stale["cache_age_seconds"] = age
+        return stale
 
     def process_openmeteo_data(self, raw_data):
         """
