@@ -54,6 +54,32 @@ def get_mexico_time():
     return mexico_now.replace(tzinfo=None)
 
 
+def get_fallback_weather_data(reason: str = "unknown"):
+    """
+    Datos meteorologicos de RESPALDO con valores tipicos de Xalapa.
+    Se usa cuando Open-Meteo no responde (rate limit, timeout, etc.) y
+    aun no tenemos nada en cache. Asi el dashboard muestra algo razonable
+    en vez de un error 500.
+
+    Valores basados en el clima promedio de Xalapa, Veracruz:
+    - Templado de montaña (~1400 msnm)
+    - Humedad alta por nieblas frecuentes
+    - Vientos generalmente suaves
+    """
+    return {
+        "temperature": 18.0,
+        "humidity": 75.0,
+        "wind_speed": 5.0,
+        "cloud_cover": 60.0,
+        "source": "fallback_static",
+        "source_detail": "Valores tipicos de Xalapa - API no disponible",
+        "is_real_data": False,
+        "is_fallback": True,
+        "stale_reason": reason,
+        "fetch_timestamp": get_mexico_time().isoformat()
+    }
+
+
 def get_fallback_data(limit: int = 24):
     """
     Genera datos de RESPALDO cuando no hay datos reales disponibles.
@@ -125,6 +151,11 @@ class OpenMeteoCollector:
         self._weather_cache_data = None
         self._weather_cache_timestamp = None
         self._weather_cache_duration = timedelta(minutes=5)
+        # Negative cache: tras un fallo, no reintentamos Open-Meteo por
+        # _weather_error_backoff. Esto evita martillar la API cuando estamos
+        # rate-limited y le da tiempo a "olvidarse" de nosotros.
+        self._weather_last_error_time = None
+        self._weather_error_backoff = timedelta(seconds=60)
 
     def get_status(self):
         """Retorna el estado actual del colector para diagnóstico"""
@@ -315,23 +346,36 @@ class OpenMeteoCollector:
         Fuente: Open Meteo Weather API
         Documentación: https://open-meteo.com/en/docs
 
-        Estrategia anti rate-limit:
-        1. Si hay caché valido (<5 min): devolverlo sin pegarle a la API.
-        2. Si no hay caché valido: consultar Open-Meteo.
-        3. Si la consulta falla (429, timeout, etc.): devolver el ultimo
-           valor cacheado aunque haya expirado. Datos un poco viejos son
-           mejor que romper el dashboard. Solo devolvemos None si nunca
-           hemos tenido datos.
+        Estrategia de resiliencia (de mejor a peor):
+        1. Cache vigente (<5 min): devolver sin tocar la API.
+        2. Negative cache: si acabamos de fallar (<60s), no reintentar.
+           Devolver stale o fallback estatico.
+        3. Consultar Open-Meteo. Si responde 200, cachear y devolver.
+        4. Si la API falla (429, timeout, etc.): marcar el error y
+           degradar a stale (si tenemos cache viejo) o a fallback
+           estatico con valores tipicos de Xalapa.
+
+        Nunca devuelve None: siempre hay algo razonable para el frontend.
         """
+        now = get_mexico_time()
+
         # 1. Cache vigente -> devolver directo.
         if self._weather_cache_data is not None and self._weather_cache_timestamp is not None:
-            age = get_mexico_time() - self._weather_cache_timestamp
+            age = now - self._weather_cache_timestamp
             if age < self._weather_cache_duration:
                 cached = dict(self._weather_cache_data)
                 cached["cache_age_seconds"] = age.total_seconds()
                 return cached
 
-        # 2. Intentar consulta fresca.
+        # 2. Negative cache: si fallamos hace poco, no martillar la API.
+        if self._weather_last_error_time is not None:
+            since_error = now - self._weather_last_error_time
+            if since_error < self._weather_error_backoff:
+                remaining = (self._weather_error_backoff - since_error).total_seconds()
+                print(f"  ⏳ Weather en negative-cache: {remaining:.0f}s restantes antes de reintentar Open-Meteo")
+                return self._stale_weather_fallback(reason="negative_cache")
+
+        # 3. Intentar consulta fresca a Open-Meteo.
         try:
             params = {
                 "latitude": self.latitude,
@@ -354,35 +398,47 @@ class OpenMeteoCollector:
                     "source": "open_meteo_weather_api",
                     "source_url": self.weather_url,
                     "is_real_data": True,
-                    "fetch_timestamp": get_mexico_time().isoformat()
+                    "fetch_timestamp": now.isoformat()
                 }
-                # Guardar en caché.
+                # Exito: cachear y limpiar marca de error.
                 self._weather_cache_data = fresh
-                self._weather_cache_timestamp = get_mexico_time()
+                self._weather_cache_timestamp = now
+                self._weather_last_error_time = None
                 return fresh
 
+            # 4a. HTTP error (incluye 429) -> degradar.
             print(f"Error en la petición meteorológica: {response.status_code}")
-            # 3. API fallo -> degradar a caché viejo si existe.
+            self._weather_last_error_time = now
             return self._stale_weather_fallback(reason=f"http_{response.status_code}")
         except Exception as e:
+            # 4b. Excepcion (timeout, DNS, etc.) -> degradar.
             print(f"Error obteniendo datos meteorológicos: {str(e)}")
+            self._weather_last_error_time = now
             return self._stale_weather_fallback(reason="exception")
 
     def _stale_weather_fallback(self, reason: str):
         """
-        Devuelve el ultimo valor cacheado de weather aunque haya expirado.
-        Marca el payload con stale=True para que el frontend pueda mostrarlo
-        diferente si quiere. Devuelve None si nunca se cacheo nada.
+        Cuando no podemos llamar a la API o falla, devolvemos lo mejor que
+        tengamos:
+        - Si hay cache real (aunque expirado): devolverlo marcado como stale.
+        - Si no hay nada cacheado: devolver el fallback estatico con valores
+          tipicos de Xalapa, marcado como is_real_data=False.
+
+        Nunca devuelve None: el endpoint /api/weather siempre puede responder
+        200 con datos razonables.
         """
-        if self._weather_cache_data is None or self._weather_cache_timestamp is None:
-            return None
-        age = (get_mexico_time() - self._weather_cache_timestamp).total_seconds()
-        print(f"  ⚠️ Devolviendo weather cache stale (edad: {age:.0f}s, motivo: {reason})")
-        stale = dict(self._weather_cache_data)
-        stale["stale"] = True
-        stale["stale_reason"] = reason
-        stale["cache_age_seconds"] = age
-        return stale
+        if self._weather_cache_data is not None and self._weather_cache_timestamp is not None:
+            age = (get_mexico_time() - self._weather_cache_timestamp).total_seconds()
+            print(f"  ⚠️ Devolviendo weather cache stale (edad: {age:.0f}s, motivo: {reason})")
+            stale = dict(self._weather_cache_data)
+            stale["stale"] = True
+            stale["stale_reason"] = reason
+            stale["cache_age_seconds"] = age
+            return stale
+
+        # Cache frio y API caida -> fallback estatico.
+        print(f"  ⚠️ Sin cache previo, devolviendo fallback estatico (motivo: {reason})")
+        return get_fallback_weather_data(reason=reason)
 
     def process_openmeteo_data(self, raw_data):
         """
