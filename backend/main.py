@@ -289,15 +289,41 @@ async def shutdown_event():
     tags=["🏥 Estado del Sistema"],
     summary="Verificar estado del sistema"
 )
-async def health_check():
-    return {
-        "status": "ok",
+async def health_check(db: Session = Depends(get_db)):
+    """
+    Healthcheck que ademas ejecuta una consulta trivial contra la base
+    de datos. Esto cumple dos funciones:
+
+    1. Permite a UptimeRobot detectar caidas de la BD (no solo del API).
+    2. Genera actividad periodica en Supabase para que el proyecto en
+       free tier no entre en estado "Paused" por inactividad (~1 semana
+       sin queries).
+    """
+    db_ok = False
+    db_error: Optional[str] = None
+    try:
+        db.execute(text("SELECT 1"))
+        db_ok = True
+    except Exception as exc:
+        db_error = str(exc)[:200]
+
+    payload = {
+        "status": "ok" if db_ok else "degraded",
+        "database": "up" if db_ok else "down",
         "timestamp": datetime.now().isoformat(),
         "data_sources": {
             "air_quality": "Open-Meteo (CAMS)",
             "traffic": "TomTom Traffic API"
         }
     }
+    if db_error:
+        payload["database_error"] = db_error
+
+    if not db_ok:
+        # 503 hace que UptimeRobot lo marque como caida y reintente.
+        raise HTTPException(status_code=503, detail=payload)
+
+    return payload
 
 @app.get("/api/rate-limit-stats", tags=["🏥 Estado del Sistema"], summary="Estadísticas de rate limiting")
 async def get_rate_limit_statistics():
