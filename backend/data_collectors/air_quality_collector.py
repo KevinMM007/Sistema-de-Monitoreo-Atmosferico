@@ -406,15 +406,80 @@ class OpenMeteoCollector:
                 self._weather_last_error_time = None
                 return fresh
 
-            # 4a. HTTP error (incluye 429) -> degradar.
+            # 4a. HTTP error (incluye 429) -> intentar fuente secundaria.
             print(f"Error en la petición meteorológica: {response.status_code}")
+            secondary = self._try_wttr_in(now)
+            if secondary is not None:
+                return secondary
             self._weather_last_error_time = now
             return self._stale_weather_fallback(reason=f"http_{response.status_code}")
         except Exception as e:
-            # 4b. Excepcion (timeout, DNS, etc.) -> degradar.
+            # 4b. Excepcion (timeout, DNS, etc.) -> intentar fuente secundaria.
             print(f"Error obteniendo datos meteorológicos: {str(e)}")
+            secondary = self._try_wttr_in(now)
+            if secondary is not None:
+                return secondary
             self._weather_last_error_time = now
             return self._stale_weather_fallback(reason="exception")
+
+    def _try_wttr_in(self, now):
+        """
+        Fuente secundaria: wttr.in. Sin API key, sin registro, gratis.
+
+        Solo se invoca cuando Open-Meteo falla, por lo que el trafico
+        hacia wttr.in es bajo. Si responde 200 con datos validos, los
+        cachea (mismo cache que Open-Meteo) y los devuelve. Si tambien
+        falla, devuelve None para que el caller siga degradando.
+        """
+        try:
+            url = f"https://wttr.in/{self.latitude},{self.longitude}"
+            response = requests.get(url, params={"format": "j1"}, timeout=10)
+            if response.status_code != 200:
+                print(f"  ⚠️ wttr.in respondio {response.status_code}, no usable como fallback")
+                return None
+
+            data = response.json()
+            current_list = data.get("current_condition") or []
+            if not current_list:
+                print("  ⚠️ wttr.in: respuesta sin current_condition")
+                return None
+            current = current_list[0]
+
+            # wttr.in devuelve strings; convertir a float con cuidado.
+            def _to_float(value, default=None):
+                if value is None:
+                    return default
+                try:
+                    return float(value)
+                except (TypeError, ValueError):
+                    return default
+
+            fresh = {
+                "temperature": _to_float(current.get("temp_C")),
+                "humidity": _to_float(current.get("humidity")),
+                "wind_speed": _to_float(current.get("windspeedKmph")),
+                "cloud_cover": _to_float(current.get("cloudcover")),
+                # Metadatos: marcamos la fuente real.
+                "source": "wttr_in",
+                "source_url": "https://wttr.in",
+                "source_detail": "Fuente secundaria - Open-Meteo no disponible",
+                "is_real_data": True,
+                "fetch_timestamp": now.isoformat()
+            }
+
+            # Si faltan campos criticos, no confiamos en la respuesta.
+            if fresh["temperature"] is None or fresh["humidity"] is None:
+                print("  ⚠️ wttr.in: respuesta incompleta, ignorando")
+                return None
+
+            print(f"  ✅ Weather obtenido de wttr.in (fallback): {fresh['temperature']} grados C, {fresh['humidity']}% humedad")
+            self._weather_cache_data = fresh
+            self._weather_cache_timestamp = now
+            self._weather_last_error_time = None
+            return fresh
+        except Exception as e:
+            print(f"  ⚠️ wttr.in fallo: {str(e)}")
+            return None
 
     def _stale_weather_fallback(self, reason: str):
         """
