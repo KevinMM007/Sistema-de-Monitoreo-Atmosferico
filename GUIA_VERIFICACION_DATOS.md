@@ -1,115 +1,99 @@
-# 📊 Guía de Verificación de Datos para Tesis
+# Guia de Verificacion de Datos
 ## Sistema de Monitoreo de Calidad del Aire - Xalapa, Veracruz
 
----
-
-## 🎯 Resumen Ejecutivo
-
-Este documento describe cómo verificar la autenticidad de los datos mostrados en el sistema de monitoreo de calidad del aire, información crítica para trabajos académicos y de investigación.
+**Version del sistema:** 2.1.0
+**Ultima actualizacion:** Mayo 2026
+**Autor:** Kevin Morales
 
 ---
 
-## 📡 Fuentes de Datos del Sistema
+## Resumen
 
-### 1. **Calidad del Aire - Open-Meteo API**
-- **URL**: `https://air-quality-api.open-meteo.com/v1/air-quality`
-- **Documentación**: https://open-meteo.com/en/docs/air-quality-api
-- **Modelo de datos**: **CAMS (Copernicus Atmosphere Monitoring Service)**
-- **Operador del modelo**: ECMWF (European Centre for Medium-Range Weather Forecasts)
-- **Resolución espacial**: ~10km x 10km
-- **Frecuencia de actualización**: Cada hora
+Este documento describe como verificar que los datos mostrados por el sistema
+provienen de fuentes reales (Open-Meteo CAMS, wttr.in, TomTom, OpenStreetMap)
+y no de los mecanismos de respaldo internos. La distincion es relevante para
+trabajo academico, porque solo los datos reales pueden citarse como evidencia.
 
-#### Contaminantes medidos:
+---
+
+## Fuentes de Datos del Sistema
+
+### 1. Calidad del Aire - Open-Meteo Air Quality API
+- **URL:** `https://air-quality-api.open-meteo.com/v1/air-quality`
+- **Documentacion:** https://open-meteo.com/en/docs/air-quality-api
+- **Modelo de datos:** CAMS (Copernicus Atmosphere Monitoring Service)
+- **Operador:** ECMWF (European Centre for Medium-Range Weather Forecasts)
+- **Resolucion espacial:** ~40 km por celda en el producto global
+- **Actualizacion:** Cada hora
+
+Contaminantes recolectados:
+
 | Contaminante | Variable API | Unidad |
-|--------------|--------------|--------|
-| PM2.5 | pm2_5 | μg/m³ |
-| PM10 | pm10 | μg/m³ |
-| NO₂ | nitrogen_dioxide | μg/m³ |
-| O₃ | ozone | μg/m³ |
-| CO | carbon_monoxide | μg/m³ (convertido a mg/m³) |
+|---|---|---|
+| PM2.5 | `pm2_5` | µg/m³ |
+| PM10 | `pm10` | µg/m³ |
+| NO2 | `nitrogen_dioxide` | µg/m³ |
+| O3 | `ozone` | µg/m³ |
+| CO | `carbon_monoxide` | µg/m³ (convertido a mg/m³ dividiendo entre 1000) |
 
-### 2. **Datos Meteorológicos - Open-Meteo API**
-- **URL**: `https://api.open-meteo.com/v1/forecast`
-- **Variables**: temperatura, humedad, velocidad del viento, cobertura de nubes
+### 2. Datos Meteorologicos - Cascada de fuentes
 
-### 3. **Infraestructura Vial - OpenStreetMap (OSM)**
-- **API**: Overpass API
-- **Datos**: Densidad vial, vías principales, puntos de interés
-- **Uso**: Calcular factores de contaminación por zona
+El sistema implementa una cascada de resiliencia para weather:
 
-### 4. **Tráfico en Tiempo Real - TomTom API (Opcional)**
-- **URL**: https://developer.tomtom.com/traffic-api
-- **Datos**: Nivel de congestión por zona
+1. **Primaria - Open-Meteo Forecast API:** `https://api.open-meteo.com/v1/forecast`
+   Variables: temperatura, humedad relativa, velocidad del viento, cobertura
+   de nubes. Sin API key.
+2. **Secundaria - wttr.in:** `https://wttr.in/<lat>,<lon>?format=j1`
+   Se invoca solo cuando Open-Meteo responde con error (tipicamente 429 por
+   rate-limit compartido en la IP del free tier de Render). Sin API key.
+3. **Fallback estatico:** valores tipicos de Xalapa (18 grados C, 75 % humedad,
+   5 km/h, 60 % nubosidad), marcados como `is_real_data: false`.
+
+### 3. Infraestructura Vial - OpenStreetMap
+- **API:** Overpass `https://overpass-api.de/api/interpreter`
+- **Datos:** densidad vial, longitud de vias por categoria, uso de suelo,
+  puntos de interes generadores de trafico.
+- **Cache:** 30 dias. Cuando el cache expira o falla la consulta, el sistema
+  cae al archivo `backend/osm_zones_seed.json` versionado en el repo.
+
+### 4. Trafico en Tiempo Real - TomTom Traffic Flow API
+- **URL:** `https://api.tomtom.com/traffic/services/4/flowSegmentData/absolute/10/json`
+- **Plan gratuito:** 2,500 solicitudes / dia. Requiere API key.
+- **Datos:** velocidad actual, velocidad de flujo libre, nivel de congestion
+  en cinco puntos correspondientes a las zonas de monitoreo.
 
 ---
 
-## 🔍 Cómo Verificar la Autenticidad de los Datos
+## Como Verificar la Autenticidad de los Datos
 
-### Método 1: Indicador Visual en la Interfaz
+### Metodo 1: Indicador visual en el dashboard
 
-El sistema muestra un indicador en la parte superior del Dashboard:
+El dashboard expone un indicador en la parte superior:
 
-**✅ Datos Verificados (Verde)**
-```
-🟢 Datos en Tiempo Real
-Fuente: Open-Meteo Air Quality API (Modelo CAMS)
-[✓ DATOS VERIFICADOS]
-```
+- **Verde - "Datos en Tiempo Real":** todas las fuentes principales estan
+  respondiendo correctamente.
+- **Amarillo - "DATOS SIMULADOS":** al menos una fuente esta cayendo a fallback.
+  En este caso no deben usarse los valores meteorologicos como evidencia
+  academica.
 
-**⚠️ Datos Simulados (Amarillo)**
-```
-🟡 DATOS SIMULADOS - API No Disponible
-Los datos mostrados son estimaciones de respaldo basadas en patrones típicos.
-[DATOS SIMULADOS]
-```
+### Metodo 2: Endpoint `/api/data-verification`
 
-### Método 2: Endpoint de Diagnóstico
+Acceso directo:
 
-Accede a estos endpoints desde tu navegador para obtener información detallada:
+- **Produccion:** https://air-quality-xalapa-api.onrender.com/api/data-verification
+- **Local:** `http://localhost:8000/api/data-verification`
 
-#### Diagnóstico Completo
-```
-http://localhost:8000/api/diagnostics
-```
+Respuesta tipica con datos reales:
 
-Respuesta ejemplo:
 ```json
 {
-  "diagnostic_timestamp": "2024-11-27T11:07:00",
-  "data_authenticity": {
-    "is_real_data": true,
-    "is_using_fallback": false,
-    "verification_note": "✅ Los datos provienen de la API de Open Meteo (datos reales del modelo CAMS)"
-  },
-  "api_connection_test": {
-    "open_meteo_air_quality": {
-      "status": "connected",
-      "response_code": 200,
-      "response_time_ms": 245
-    }
-  },
-  "sample_data": {
-    "first_records": [...],
-    "last_records": [...]
-  }
-}
-```
-
-#### Verificación Rápida
-```
-http://localhost:8000/api/data-verification
-```
-
-Respuesta ejemplo:
-```json
-{
-  "verification_timestamp": "2024-11-27T11:07:00",
+  "verification_timestamp": "2026-05-12T10:00:00",
   "data_status": {
     "is_real_data": true,
     "source": "open_meteo_air_quality_api",
     "data_provider": "Open-Meteo.com"
   },
-  "verification_result": "✅ DATOS VERIFICADOS: Los datos son REALES de Open Meteo API",
+  "verification_result": "DATOS VERIFICADOS: Los datos son REALES de Open Meteo API",
   "current_values": {
     "pm25": 12.5,
     "pm10": 18.3,
@@ -120,35 +104,51 @@ Respuesta ejemplo:
 }
 ```
 
-### Método 3: Verificación Manual con la API de Open-Meteo
+### Metodo 3: Endpoint `/api/diagnostics`
 
-Puedes verificar manualmente los datos consultando directamente la API:
+Diagnostico extendido del estado de las fuentes externas:
+
+- **Produccion:** https://air-quality-xalapa-api.onrender.com/api/diagnostics
+- **Local:** `http://localhost:8000/api/diagnostics`
+
+Incluye prueba de conexion en vivo a Open-Meteo, codigo de respuesta y
+tiempo medido, ademas de los ultimos registros guardados en base de datos.
+
+### Metodo 4: Verificacion manual contra la API publica
 
 ```bash
-# Consultar datos para Xalapa (coordenadas: 19.5438, -96.9102)
+# Coordenadas de Xalapa: 19.5438, -96.9102
 curl "https://air-quality-api.open-meteo.com/v1/air-quality?latitude=19.5438&longitude=-96.9102&hourly=pm10,pm2_5,nitrogen_dioxide,carbon_monoxide,ozone&timezone=America/Mexico_City"
 ```
 
-Los valores retornados deben coincidir con los mostrados en el sistema.
+Los valores horarios retornados por esta consulta deben coincidir con los
+mostrados por el dashboard (modulados luego por el factor OSM y el factor
+de trafico segun la metodologia descrita en la tesis).
+
+Para weather, verificacion equivalente con la fuente secundaria:
+
+```bash
+curl "https://wttr.in/19.5438,-96.9102?format=j1"
+```
 
 ---
 
-## 🏷️ Campos de Verificación en los Datos
+## Campos de Verificacion en la Respuesta
 
-Cada registro de datos incluye estos campos de verificación:
+Cada registro entregado por el backend incluye campos de procedencia. Para
+calidad del aire:
 
 ```json
 {
-  "timestamp": "2024-11-27T10:00",
+  "timestamp": "2026-05-12T10:00",
   "pm25": 12.5,
   "pm10": 18.3,
   "no2": 15.2,
   "o3": 45.6,
   "co": 0.35,
-  
-  // ✅ CAMPOS DE VERIFICACIÓN
-  "is_real_data": true,          // true = datos de API, false = simulados
-  "is_fallback": false,          // true si son datos de respaldo
+
+  "is_real_data": true,
+  "is_fallback": false,
   "source": "open_meteo_air_quality_api",
   "source_url": "https://air-quality-api.open-meteo.com/v1/air-quality",
   "source_model": "CAMS (Copernicus Atmosphere Monitoring Service)",
@@ -156,86 +156,130 @@ Cada registro de datos incluye estos campos de verificación:
 }
 ```
 
+Para weather, los valores posibles del campo `source` son:
+
+| `source` | Significado |
+|---|---|
+| `open_meteo_weather_api` | Fuente primaria respondiendo, datos reales. |
+| `wttr_in` | Fuente secundaria activa porque la primaria fallo. Datos reales. |
+| `fallback_static` | Ambas fuentes externas cayeron. Valores tipicos, NO usar para academia. |
+
+El campo booleano `is_real_data` resume esta procedencia: `true` para las dos
+primeras filas, `false` para la tercera.
+
 ---
 
-## 📚 Citas para Trabajo Académico
+## Citas para Trabajo Academico
 
 ### Cita para Open-Meteo
 ```
-Open-Meteo. (2024). Open-Meteo Air Quality API. Recuperado de https://open-meteo.com/en/docs/air-quality-api
+Open-Meteo. (2026). Open-Meteo Air Quality API. Recuperado de
+https://open-meteo.com/en/docs/air-quality-api
 ```
 
-### Cita para CAMS/Copernicus
+### Cita para CAMS / Copernicus
 ```
-Copernicus Atmosphere Monitoring Service (CAMS). (2024). European Centre for Medium-Range Weather Forecasts (ECMWF). Recuperado de https://atmosphere.copernicus.eu/
+Copernicus Atmosphere Monitoring Service (CAMS). (2026). European Centre for
+Medium-Range Weather Forecasts (ECMWF). Recuperado de
+https://atmosphere.copernicus.eu/
 ```
 
-### Cita para el modelo de datos
+### Cita para wttr.in
 ```
-Los datos de calidad del aire utilizados en este estudio provienen del servicio Open-Meteo, 
-que utiliza el modelo CAMS (Copernicus Atmosphere Monitoring Service) operado por el 
-Centro Europeo de Pronósticos Meteorológicos a Plazo Medio (ECMWF). El modelo CAMS 
-proporciona análisis y pronósticos de composición atmosférica global con una resolución 
-espacial de aproximadamente 10km x 10km.
+wttr.in. (2026). Console-oriented weather forecast service. Recuperado de
+https://wttr.in/
+```
+
+### Cita textual sugerida para el modelo de datos
+```
+Los datos de calidad del aire utilizados en este estudio provienen del
+servicio Open-Meteo, que expone los productos del modelo CAMS (Copernicus
+Atmosphere Monitoring Service) operado por el Centro Europeo de Pronosticos
+Meteorologicos a Plazo Medio (ECMWF). El modelo CAMS proporciona analisis
+y pronosticos de composicion atmosferica global con una resolucion espacial
+de aproximadamente 40 km por celda en su producto global.
 ```
 
 ---
 
-## ⚠️ Cuándo los Datos son Simulados
+## Cuando los Datos son Simulados
 
-El sistema usa datos simulados SOLO cuando:
-1. No hay conexión a internet
-2. La API de Open-Meteo no responde
-3. Hay errores de procesamiento de datos
+El sistema cae a datos sinteticos solo cuando todas las fuentes reales
+fallan. Escenarios concretos:
 
-En estos casos:
-- El indicador cambia a **amarillo**
-- Los datos tienen `is_real_data: false` e `is_fallback: true`
-- **NO deben usarse para investigación académica**
+- **Calidad del aire:** Open-Meteo no responde y no hay lecturas recientes en
+  la base de datos local. En ese caso el colector devuelve datos generados
+  con valores razonables marcados con `is_real_data: false` y `is_fallback: true`.
+- **Weather:** Open-Meteo Weather API esta rate-limitada y wttr.in tampoco
+  responde, y no hay cache previo. En ese caso se devuelven los valores
+  tipicos de Xalapa marcados con `is_real_data: false`.
+
+En ambos casos:
+- El indicador del dashboard cambia a amarillo.
+- Las respuestas de la API incluyen `is_real_data: false`.
+- **Estos valores no deben usarse para investigacion academica.**
 
 ---
 
-## 🛠️ Verificación Técnica (Para Desarrolladores)
+## Verificacion Tecnica (para desarrolladores)
 
-### Logs del Backend
-Al iniciar el servidor, observa la consola:
+### Logs del backend
+
+Al consultar `/api/air-quality` el backend imprime en stdout:
 
 ```
 ============================================================
-📡 OPEN METEO API - Solicitud de datos
+OPEN METEO API - Solicitud de datos
 ============================================================
   URL: https://air-quality-api.open-meteo.com/v1/air-quality
   Coordenadas: 19.5438, -96.9102 (Xalapa, Veracruz)
-  Rango: 2024-11-25 a 2024-11-27
-  Hora de solicitud: 2024-11-27 11:05:24
-  Código de respuesta: 200
+  Rango: 2026-05-10 a 2026-05-12
+  Hora Mexico: 2026-05-12 10:00:00
+  Codigo de respuesta: 200
   Tiempo de respuesta: 0.24s
-  ✅ Datos REALES obtenidos: 48 registros
+  Datos REALES obtenidos: 48 registros
 ============================================================
 ```
 
-### Estado del Colector
+Si Open-Meteo Weather falla y wttr.in toma el relevo, se vera ademas:
+
 ```
-http://localhost:8000/api/collector-status
+Error en la peticion meteorologica: 429
+  Weather obtenido de wttr.in (fallback): 23 grados C, 74% humedad
 ```
 
----
+### Estado del colector
 
-## 📋 Checklist de Verificación para Tesis
+```
+GET https://air-quality-xalapa-api.onrender.com/api/collector-status
+```
 
-- [ ] El indicador de estado muestra "Datos en Tiempo Real" (verde)
-- [ ] El endpoint `/api/data-verification` confirma `is_real_data: true`
-- [ ] Los datos tienen el campo `source: "open_meteo_air_quality_api"`
-- [ ] La consola del backend muestra "Datos REALES obtenidos"
-- [ ] Los valores coinciden aproximadamente con consulta manual a Open-Meteo
-
----
-
-## 📞 Soporte
-
-Si tienes dudas sobre la autenticidad de los datos o necesitas información adicional para tu investigación, contacta al desarrollador del sistema.
+Devuelve metricas de operacion: fetches exitosos / fallidos, ultima
+respuesta, codigo HTTP, edad del cache y zona horaria del servidor.
 
 ---
 
-*Documento generado para el Sistema de Monitoreo de Calidad del Aire de Xalapa, Veracruz*
-*Versión: 1.0 - Noviembre 2024*
+## Checklist de Verificacion para Tesis
+
+- [ ] El indicador del dashboard muestra "Datos en Tiempo Real" (verde).
+- [ ] El endpoint `/api/data-verification` reporta `is_real_data: true`.
+- [ ] El campo `source` es `open_meteo_air_quality_api` para contaminantes.
+- [ ] El campo `source` para weather es `open_meteo_weather_api` o `wttr_in`
+      (ambos son datos reales).
+- [ ] Los logs del backend muestran "Datos REALES obtenidos".
+- [ ] Los valores coinciden razonablemente con una consulta manual a la
+      API publica de Open-Meteo.
+
+---
+
+## Soporte
+
+Si tienes dudas sobre la autenticidad de los datos o necesitas informacion
+adicional para tu investigacion, contacta al desarrollador del sistema.
+
+- Repositorio: https://github.com/KevinMM007/Sistema-de-Monitoreo-Atmosferico
+- Documento de referencia: `MANUAL_TECNICO.md`
+
+---
+
+*Sistema de Monitoreo de Calidad del Aire de Xalapa, Veracruz - Version 2.1.0*
