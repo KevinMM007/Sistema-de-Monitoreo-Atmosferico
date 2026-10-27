@@ -202,8 +202,13 @@ app.add_middleware(
     allow_headers=["*"]
 
 )
-# Crear las tablas de la base de datos
-models.Base.metadata.create_all(bind=engine)
+# Crear las tablas de la base de datos.
+# Si la BD no responde (p. ej. Supabase pausado) el API debe arrancar igual:
+# los endpoints ya tienen fallback a Open-Meteo y /api/health reporta 503.
+try:
+    models.Base.metadata.create_all(bind=engine)
+except Exception as e:
+    print(f"⚠️ No se pudieron crear/verificar las tablas (BD no disponible): {str(e)[:200]}")
 
 # Incluir las rutas de datos históricos con prefijo /api
 app.include_router(historical_router, prefix="/api")
